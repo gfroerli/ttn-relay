@@ -13,4 +13,4 @@ RUN pip install -r requirements.txt
 
 # Start
 USER relay
-CMD ["/usr/bin/env", "python3", "relay.py"]
+CMD ["/usr/bin/env", "python3", "-u", "relay.py"]
