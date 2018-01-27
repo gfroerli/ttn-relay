@@ -16,3 +16,9 @@ Set the following env variables:
 
 You can also place those env variables in an `.env` file, they will be read
 automatically.
+
+## Docker
+
+A docker image is built at
+[gfroerli/ttn-relay](https://hub.docker.com/r/gfroerli/ttn-relay/)
+for every push to master.
