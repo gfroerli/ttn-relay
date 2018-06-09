@@ -25,7 +25,7 @@ TTN_APP_ID = os.environ.get('TTN_APP_ID')
 TTN_ACCESS_KEY = os.environ.get('TTN_ACCESS_KEY')
 
 # Payload
-PAYLOAD_FORMAT = '<fff'
+PAYLOAD_FORMAT = '<ffff'
 
 # Watertemp API
 API_URL = 'https://watertemp-api.coredump.ch/api'
@@ -104,9 +104,9 @@ def on_message(client, userdata, msg):
         except struct.error as e:
             print('Invalid payload format: %s' % e)
             return
-        msg = '%s | DS Temp: %.2f°C | SHT Temp: %.2f°C | SHT Humi: %.2f%%RH'
+        msg = '%s | DS Temp: %.2f °C | SHT Temp: %.2f °C | SHT Humi: %.2f %%RH | Voltage: %.2f V'
         timestamp = datetime.datetime.now().isoformat()
-        msg_full = msg % (timestamp, unpacked[0], unpacked[1], unpacked[2])
+        msg_full = msg % (timestamp, unpacked[0], unpacked[1], unpacked[2], unpacked[3])
         print(msg_full)
 
         # Determine API sensor ID
