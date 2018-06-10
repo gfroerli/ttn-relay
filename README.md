@@ -1,3 +1,6 @@
+[![CircleCI][circle-ci-badge]][circle-ci]
+[![Docker][docker-badge]][docker]
+
 # TTN Relay
 
 A Python 3 script to relay data from The Things Network to our own application
@@ -22,3 +25,9 @@ automatically.
 A docker image is built at
 [gfroerli/ttn-relay](https://hub.docker.com/r/gfroerli/ttn-relay/)
 for every push to master.
+
+<!-- Badges -->
+[circle-ci]: https://circleci.com/gh/gfroerli/ttn-relay/tree/master
+[circle-ci-badge]: https://circleci.com/gh/gfroerli/ttn-relay/tree/master.svg?style=shield
+[docker]: https://hub.docker.com/r/gfroerli/ttn-relay/
+[docker-badge]: https://img.shields.io/badge/docker%20image-gfroerli%2Fttn--relay-blue.svg

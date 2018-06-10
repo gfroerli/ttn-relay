@@ -1,0 +1,44 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: docker:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build Docker image
+          command: |
+            docker build \
+              --no-cache \
+              -t gfroerli/ttn-relay:latest \
+              -t gfroerli/ttn-relay:${CIRCLE_BRANCH} \
+              .
+      - deploy:
+          name: Push Docker image
+          command: |
+            docker login -u $DOCKER_USER -p $DOCKER_API_KEY && \
+            docker push gfroerli/ttn-relay
+workflows:
+  version: 2
+
+  # Build on push to master
+  on_push:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only:
+                - master
+
+  # Build every week on Monday at 05:00 am
+  weekly:
+    triggers:
+      - schedule:
+          cron: "0 5 * * 1"
+          filters:
+            branches:
+              only:
+                - master
+    jobs:
+      - build
