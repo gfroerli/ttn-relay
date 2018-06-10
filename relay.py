@@ -51,9 +51,11 @@ tmp = SENSOR_MAPPINGS_RAW.split(',')
 SENSOR_MAPPINGS = dict(zip(tmp[::2], map(int, tmp[1::2])))
 
 
-def send_to_api(sensor_id: int, temperature: float):
+def send_to_api(sensor_id: int, temperature: float, attributes: dict):
     """
     Send temperature measurement to API.
+
+    TODO: Send along atributes
     """
     data = {
         'sensor_id': sensor_id,
@@ -110,7 +112,11 @@ def on_message(client, userdata, msg):
             return
         msg = '%s | DS Temp: %.2f °C | SHT Temp: %.2f °C | SHT Humi: %.2f %%RH | Voltage: %.2f V'
         timestamp = datetime.datetime.now().isoformat()
-        msg_full = msg % (timestamp, unpacked[0], unpacked[1], unpacked[2], unpacked[3])
+        ds18b20_temp = unpacked[0]
+        sht21_temp = unpacked[1]
+        sht21_humi = unpacked[2]
+        voltage = unpacked[3]
+        msg_full = msg % (timestamp, ds18b20_temp, sht21_temp, sht21_humi, voltage)
         print(msg_full)
 
         # Determine API sensor ID
@@ -121,8 +127,11 @@ def on_message(client, userdata, msg):
             return
 
         # Send to API
-        sht_temp = unpacked[1]
-        send_to_api(sensor_id, sht_temp)
+        send_to_api(sensor_id, ds18b20_temp, {
+            'enclosure_temp': sht21_temp,
+            'enclosure_humi': sht21_humi,
+            'voltage': voltage,
+        })
 
 
 client = mqtt.Client()
