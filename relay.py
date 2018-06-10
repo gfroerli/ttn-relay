@@ -8,6 +8,7 @@ import json
 import os
 import ssl
 import struct
+import sys
 
 import dotenv
 import paho.mqtt.client as mqtt
@@ -42,7 +43,10 @@ CONNECT_RETURN_CODES = {
 }
 
 # Sensor mappings
-SENSOR_MAPPINGS_RAW = os.environ.get('SENSOR_MAPPINGS')
+SENSOR_MAPPINGS_RAW = os.environ.get('SENSOR_MAPPINGS', '')
+if len(SENSOR_MAPPINGS_RAW) == 0:
+    print('Missing SENSOR_MAPPINGS env var')
+    sys.exit(1)
 tmp = SENSOR_MAPPINGS_RAW.split(',')
 SENSOR_MAPPINGS = dict(zip(tmp[::2], map(int, tmp[1::2])))
 
