@@ -1,3 +1,4 @@
 paho-mqtt==1.2.2
 requests==2.13.0
 python-dotenv==0.7.1
+influxdb==5.0.0

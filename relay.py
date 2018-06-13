@@ -9,10 +9,21 @@ import os
 import ssl
 import struct
 import sys
+import time
+from typing import Any, Dict
 
 import dotenv
+import influxdb
 import paho.mqtt.client as mqtt
 import requests
+
+
+# Helper function
+def require_env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError('Missing {} env variable'.format(name))
+    return value.strip()
 
 
 # Config from .env file
@@ -22,8 +33,15 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 DEBUG = os.environ.get('DEBUG', '0').lower() in ['1', 'true', 'yes', 'y']
 
 # TTN
-TTN_APP_ID = os.environ.get('TTN_APP_ID')
-TTN_ACCESS_KEY = os.environ.get('TTN_ACCESS_KEY')
+TTN_APP_ID = require_env('TTN_APP_ID')
+TTN_ACCESS_KEY = require_env('TTN_ACCESS_KEY')
+
+# InfluxDB
+INFLUXDB_HOST = require_env('INFLUXDB_HOST')
+INFLUXDB_PORT = require_env('INFLUXDB_PORT')
+INFLUXDB_USER = require_env('INFLUXDB_USER')
+INFLUXDB_PASS = require_env('INFLUXDB_PASS')
+INFLUXDB_DB = require_env('INFLUXDB_DB')
 
 # Payload
 PAYLOAD_FORMAT = '<ffff'
@@ -51,7 +69,20 @@ tmp = SENSOR_MAPPINGS_RAW.split(',')
 SENSOR_MAPPINGS = dict(zip(tmp[::2], map(int, tmp[1::2])))
 
 
-def send_to_api(sensor_id: int, temperature: float, attributes: dict):
+# Create InfluxDB client
+influxdb_client = influxdb.InfluxDBClient(
+    INFLUXDB_HOST, INFLUXDB_PORT,
+    INFLUXDB_USER, INFLUXDB_PASS,
+    INFLUXDB_DB,
+    ssl=True, verify_ssl=True, timeout=10,
+)
+
+
+def send_to_api(
+    sensor_id: int,
+    temperature: float,
+    attributes: dict,
+):
     """
     Send temperature measurement to API.
 
@@ -72,8 +103,24 @@ def send_to_api(sensor_id: int, temperature: float, attributes: dict):
         print('HTTP%d' % resp.status_code)
 
 
+def log_to_influxdb(
+    client: influxdb.InfluxDBClient,
+    fields: Dict[str, float],
+    tags: Dict[str, Any],
+):
+    """
+    Log the specified data to InfluxDB.
+    """
+    json_body = [{
+        'measurement': 'temperature',
+        'tags': tags,
+        'fields': fields,
+    }]
+    client.write_points(json_body)
+
+
 def on_connect(client, userdata, flags, rc):
-    print("Connected with result code %s: %s" % (rc, CONNECT_RETURN_CODES.get(rc, 'Unknown')))
+    print('Connected with result code %s: %s' % (rc, CONNECT_RETURN_CODES.get(rc, 'Unknown')))
     if rc == 0:
         client.subscribe('+/devices/+/activations')
         client.subscribe('+/devices/+/up')
@@ -84,10 +131,30 @@ def on_message(client, userdata, msg):
     data = json.loads(msg.payload.decode('utf8'))
     if DEBUG:
         pprint(data)
+
+    # Get general information
+    dev_id = data['dev_id']
+    dev_eui = data['hardware_serial']
+    data_rate = data['metadata']['data_rate']
+
+    # Get max RSSI/SNR values
+    gateways = [
+        g for g in data['metadata']['gateways']
+        if g.get('rssi') is not None and g.get('snr') is not None
+    ]
+    all_rssi = [g['rssi'] for g in gateways]
+    all_snr = [g['snr'] for g in gateways]
+    max_rssi = max(all_rssi) if len(all_rssi) > 0 else None
+    max_snr = max(all_snr) if len(all_snr) > 0 else None
+
+    # Get gateway with best reception
+    best_gateway = sorted(gateways, key=lambda g: g['rssi'], reverse=True)[0]
+    best_gateway_id = best_gateway['gtw_id']
+
     print('Message details:')
-    print('  Dev ID: %s' % data['dev_id'])
-    print('  Dev EUI: %s' % data['hardware_serial'])
-    print('  Data rate: %s' % data['metadata']['data_rate'])
+    print('  Dev ID: %s' % dev_id)
+    print('  Dev EUI: %s' % dev_eui)
+    print('  Data rate: %s' % data_rate)
     print('  Receiving gateways:')
     for gw in data['metadata']['gateways']:
         print('    - ID: %s' % gw['gtw_id'])
@@ -133,13 +200,41 @@ def on_message(client, userdata, msg):
             'voltage': voltage,
         })
 
+        # Log to InfluxDB
+        fields = {
+            'water_temp': ds18b20_temp,
+            'enclosure_temp': sht21_temp,
+            'enclosure_humi': sht21_humi,
+            'voltage': voltage,
+            'max_rssi': max_rssi,
+            'max_snr': max_snr,
+        }
+        tags = {
+            'sensor_id': sensor_id,
+            'dev_id': dev_id,
+            'dev_eui': dev_eui,
+            'datarate': data_rate,
+            'best_gateway': best_gateway_id,
+        }
+        log_to_influxdb(influxdb_client, fields, tags)
 
-client = mqtt.Client()
-client.on_connect = on_connect
-client.on_message = on_message
 
-client.username_pw_set(TTN_APP_ID, TTN_ACCESS_KEY)
-client.tls_set('mqtt-ca.pem', tls_version=ssl.PROTOCOL_TLSv1_2)
-client.connect('eu.thethings.network', 8883, 60)
+ttn_client = mqtt.Client()
+ttn_client.on_connect = on_connect
+ttn_client.on_message = on_message
 
-client.loop_forever()
+ttn_client.username_pw_set(TTN_APP_ID, TTN_ACCESS_KEY)
+ttn_client.tls_set('mqtt-ca.pem', tls_version=ssl.PROTOCOL_TLSv1_2)
+ttn_client.connect('eu.thethings.network', 8883, 60)
+
+influxdb_client.write_points([{
+    'measurement': 'startup',
+    'fields': {
+        'value': int(time.time()),  # Make it unique
+    },
+    'tags': {
+        'service': 'gfroerli-relay',
+    }
+}])
+
+ttn_client.loop_forever()
