@@ -202,12 +202,12 @@ def on_message(client, userdata, msg):
 
         # Log to InfluxDB
         fields = {
-            'water_temp': ds18b20_temp,
-            'enclosure_temp': sht21_temp,
-            'enclosure_humi': sht21_humi,
-            'voltage': voltage,
-            'max_rssi': max_rssi,
-            'max_snr': max_snr,
+            'water_temp': float(ds18b20_temp),
+            'enclosure_temp': float(sht21_temp),
+            'enclosure_humi': float(sht21_humi),
+            'voltage': float(voltage),
+            'max_rssi': float(max_rssi),
+            'max_snr': float(max_snr),
         }
         tags = {
             'sensor_id': sensor_id,
