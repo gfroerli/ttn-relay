@@ -206,7 +206,7 @@ def on_message(client, userdata, msg):
             'enclosure_temp': float(sht21_temp),
             'enclosure_humi': float(sht21_humi),
             'voltage': float(voltage),
-            'max_rssi': float(max_rssi),
+            'max_rssi': int(max_rssi),
             'max_snr': float(max_snr),
         }
         tags = {
