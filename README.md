@@ -1,4 +1,4 @@
-[![CircleCI][circle-ci-badge]][circle-ci]
+[![CI][ci-badge]][ci]
 [![Docker][docker-badge]][docker]
 
 # TTN Relay
@@ -27,7 +27,7 @@ A docker image is built at
 for every push to master.
 
 <!-- Badges -->
-[circle-ci]: https://circleci.com/gh/gfroerli/ttn-relay/tree/master
-[circle-ci-badge]: https://circleci.com/gh/gfroerli/ttn-relay/tree/master.svg?style=shield
+[ci]: https://github.com/gfroerli/ttn-relay/actions?query=workflow%3ACI
+[ci-badge]: https://img.shields.io/github/workflow/status/gfroerli/ttn-relay/CI/master
 [docker]: https://hub.docker.com/r/gfroerli/ttn-relay/
 [docker-badge]: https://img.shields.io/badge/docker%20image-gfroerli%2Fttn--relay-blue.svg

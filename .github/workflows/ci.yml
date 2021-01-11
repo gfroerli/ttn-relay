@@ -1,0 +1,38 @@
+on:
+  push:
+  schedule:
+    - cron: '30 6 * * 6'
+
+name: CI
+
+jobs:
+  build:
+    name: Build Docker image
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build Docker image
+        run: docker build --no-cache .
+
+  publish:
+    name: Publish Docker image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    steps:
+      - uses: actions/checkout@v2
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+      - name: Build Docker image
+        run: |
+          docker build \
+            --no-cache \
+            -t gfroerli/ttn-relay:latest \
+            -t gfroerli/ttn-relay:${{ steps.extract_branch.outputs.branch }} \
+            .
+      - name: Push Docker image
+        run: |
+          docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}" && \
+          docker push gfroerli/ttn-relay
