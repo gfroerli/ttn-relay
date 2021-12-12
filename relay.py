@@ -35,6 +35,7 @@ DEBUG = os.environ.get('DEBUG', '0').lower() in ['1', 'true', 'yes', 'y']
 # TTN
 TTN_APP_ID = require_env('TTN_APP_ID')
 TTN_ACCESS_KEY = require_env('TTN_ACCESS_KEY')
+TTN_MQTT_ENDPOINT = os.environ.get('TTN_MQTT_ENDPOINT', 'eu1.cloud.thethings.network')
 
 # InfluxDB
 INFLUXDB_HOST = require_env('INFLUXDB_HOST')
@@ -225,7 +226,7 @@ ttn_client.on_message = on_message
 
 ttn_client.username_pw_set(TTN_APP_ID, TTN_ACCESS_KEY)
 ttn_client.tls_set('mqtt-ca.pem', tls_version=ssl.PROTOCOL_TLSv1_2)
-ttn_client.connect('eu.thethings.network', 8883, 60)
+ttn_client.connect(TTN_MQTT_ENDPOINT, 8883, 60)
 
 influxdb_client.write_points([{
     'measurement': 'startup',
