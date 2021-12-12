@@ -191,7 +191,7 @@ def handle_message(topic: str, data: dict):
     best_gateway = sorted(gateways, key=lambda g: g['rssi'], reverse=True)[0]
     best_gateway_id = best_gateway['gateway_ids']['gateway_id']
     best_gateway_eui = best_gateway['gateway_ids']['eui']
-    print('  Best gateway (by RSSI): %s (EUI %s)' % (best_gateway_id, best_gateway_eui))
+    print('    Best gateway (by RSSI): %s (EUI %s)' % (best_gateway_id, best_gateway_eui))
 
     # Print payload
     print('Payload:')
