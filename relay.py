@@ -33,9 +33,9 @@ dotenv.load_dotenv(dotenv.find_dotenv())
 DEBUG = os.environ.get('DEBUG', '0').lower() in ['1', 'true', 'yes', 'y']
 
 # TTN
-TTN_APP_ID = require_env('TTN_APP_ID')
-TTN_ACCESS_KEY = require_env('TTN_ACCESS_KEY')
 TTN_MQTT_ENDPOINT = os.environ.get('TTN_MQTT_ENDPOINT', 'eu1.cloud.thethings.network')
+TTN_MQTT_USERNAME = require_env('TTN_MQTT_USERNAME')
+TTN_MQTT_PASSWORD = require_env('TTN_MQTT_PASSWORD')
 
 # InfluxDB
 INFLUXDB_HOST = require_env('INFLUXDB_HOST')
@@ -87,7 +87,7 @@ def send_to_api(
     """
     Send temperature measurement to API.
 
-    TODO: Send along atributes
+    TODO: Send along attributes
     """
     data = {
         'sensor_id': sensor_id,
@@ -99,9 +99,9 @@ def send_to_api(
     print('Sending temperature %.2f°C to API...' % temperature, end='')
     resp = requests.post(API_URL + '/measurements', json=data, headers=headers)
     if resp.status_code == 201:
-        print('OK')
+        print(' OK')
     else:
-        print('HTTP%d' % resp.status_code)
+        print(' HTTP%d' % resp.status_code)
 
 
 def log_to_influxdb(
@@ -123,8 +123,9 @@ def log_to_influxdb(
 def on_connect(client, userdata, flags, rc):
     print('Connected with result code %s: %s' % (rc, CONNECT_RETURN_CODES.get(rc, 'Unknown')))
     if rc == 0:
-        client.subscribe('+/devices/+/activations')
-        client.subscribe('+/devices/+/up')
+        # Subscribe to all topics
+        print('Subscribing to all topics ("#")')
+        client.subscribe('#')
 
 
 def on_message(client, userdata, msg):
@@ -132,15 +133,49 @@ def on_message(client, userdata, msg):
     data = json.loads(msg.payload.decode('utf8'))
     if DEBUG:
         pprint(data)
+    handle_message(msg.topic, data)
 
+
+def handle_message(topic: str, data: dict):
     # Get general information
-    dev_id = data['dev_id']
-    dev_eui = data['hardware_serial']
-    data_rate = data['metadata']['data_rate']
+    device_id = data['end_device_ids']['device_id']
+    dev_eui = data['end_device_ids']['dev_eui']
+    dev_addr = data['end_device_ids']['dev_addr']
+    application_id = data['end_device_ids']['application_ids']['application_id']
+    print('General information:')
+    print('  Application ID: %s' % application_id)
+    print('  Device ID: %s' % device_id)
+    print('  Dev EUI: %s' % dev_eui)
+    print('  Dev address: %s' % dev_addr)
+
+    # Right now we're only interested in uplinks
+    if not topic.endswith('/up'):
+        print('Not an uplink, ignoring')
+        return
+
+    # Get uplink message
+    uplink = data['uplink_message']
+
+    # Print some metadata
+    print('Uplink metadata:')
+    print('  FPort: %s' % uplink['f_port'])
+    spreading_factor = int(uplink['settings']['data_rate']['lora']['spreading_factor'])
+    print('  SF: %s' % spreading_factor)
+    bandwidth_khz = int(uplink['settings']['data_rate']['lora']['bandwidth'] / 1000)
+    print('  BW: %s KHz' % bandwidth_khz)
+    print('  Frequency: %.2f MHz' % (int(uplink['settings']['frequency']) / 1000 / 1000))
+    print('  Airtime: %s' % uplink['consumed_airtime'])
+
+    # Receiving gateways
+    print('Receiving gateways:')
+    for gw in uplink['rx_metadata']:
+        print('  - ID: %s (EUI %s)' % (gw['gateway_ids']['gateway_id'], gw['gateway_ids']['eui']))
+        print('    RSSI: %s' % gw.get('rssi', '-'))
+        print('    SNR: %s' % gw.get('snr', '-'))
 
     # Get max RSSI/SNR values
     gateways = [
-        g for g in data['metadata']['gateways']
+        g for g in uplink['rx_metadata']
         if g.get('rssi') is not None and g.get('snr') is not None
     ]
     all_rssi = [g['rssi'] for g in gateways]
@@ -148,83 +183,77 @@ def on_message(client, userdata, msg):
     max_rssi = max(all_rssi) if len(all_rssi) > 0 else None
     max_snr = max(all_snr) if len(all_snr) > 0 else None
 
+    print('  Summary:')
+    print('    Max RSSI: %s' % max_rssi)
+    print('    Max SNR: %s' % max_snr)
+
     # Get gateway with best reception
     best_gateway = sorted(gateways, key=lambda g: g['rssi'], reverse=True)[0]
-    best_gateway_id = best_gateway['gtw_id']
+    best_gateway_id = best_gateway['gateway_ids']['gateway_id']
+    best_gateway_eui = best_gateway['gateway_ids']['eui']
+    print('  Best gateway (by RSSI): %s (EUI %s)' % (best_gateway_id, best_gateway_eui))
 
-    print('Message details:')
-    print('  Dev ID: %s' % dev_id)
-    print('  Dev EUI: %s' % dev_eui)
-    print('  Data rate: %s' % data_rate)
-    print('  Receiving gateways:')
-    for gw in data['metadata']['gateways']:
-        print('    - ID: %s' % gw['gtw_id'])
-        print('      Coords: %s,%s' % (gw.get('latitude', '-'), gw.get('longitude', '-')))
-        print('      Alt: %sm' % gw.get('altitude', '-'))
-        print('      RSSI: %s' % gw.get('rssi', '-'))
-        print('      SNR: %s' % gw.get('snr', '-'))
+    # Print payload
+    print('Payload:')
+    print('  Raw payload: %s' % uplink['frm_payload'])
 
-    if msg.topic.endswith('/up'):
-        # Uplink message
-        payload = data.get('payload_raw')
-        if payload is None:
-            print('Uplink msg is missing payload')
-            return
+    # Decode message bytes
+    bytestring = base64.b64decode(uplink['frm_payload'])
+    try:
+        unpacked = struct.unpack(PAYLOAD_FORMAT, bytestring)
+    except struct.error as e:
+        print('Invalid payload format: %s' % e)
+        return
+    msg = '  Decoded: %s | DS Temp: %.2f °C | SHT Temp: %.2f °C | SHT Humi: %.2f %%RH | Voltage: %.2f V'
+    timestamp = datetime.datetime.now().isoformat()
+    ds18b20_temp = unpacked[0]
+    sht21_temp = unpacked[1]
+    sht21_humi = unpacked[2]
+    voltage = unpacked[3]
+    msg_full = msg % (timestamp, ds18b20_temp, sht21_temp, sht21_humi, voltage)
+    print(msg_full)
 
-        # Decode message bytes
-        bytestring = base64.b64decode(payload)
-        try:
-            unpacked = struct.unpack(PAYLOAD_FORMAT, bytestring)
-        except struct.error as e:
-            print('Invalid payload format: %s' % e)
-            return
-        msg = '%s | DS Temp: %.2f °C | SHT Temp: %.2f °C | SHT Humi: %.2f %%RH | Voltage: %.2f V'
-        timestamp = datetime.datetime.now().isoformat()
-        ds18b20_temp = unpacked[0]
-        sht21_temp = unpacked[1]
-        sht21_humi = unpacked[2]
-        voltage = unpacked[3]
-        msg_full = msg % (timestamp, ds18b20_temp, sht21_temp, sht21_humi, voltage)
-        print(msg_full)
+    # Determine API sensor ID
+    sensor_id = SENSOR_MAPPINGS.get(dev_eui)
+    if sensor_id is None:
+        print('Error: No sensor mapping found for DevEUI %s' % dev_eui)
+        return
 
-        # Determine API sensor ID
-        deveui = data['hardware_serial']
-        sensor_id = SENSOR_MAPPINGS.get(deveui)
-        if sensor_id is None:
-            print('Error: No sensor mapping found for DevEUI %s' % deveui)
-            return
+    # Send to API
+    send_to_api(sensor_id, ds18b20_temp, {
+        'enclosure_temp': sht21_temp,
+        'enclosure_humi': sht21_humi,
+        'voltage': voltage,
+    })
 
-        # Send to API
-        send_to_api(sensor_id, ds18b20_temp, {
-            'enclosure_temp': sht21_temp,
-            'enclosure_humi': sht21_humi,
-            'voltage': voltage,
-        })
+    # Log to InfluxDB
+    fields = {
+        'water_temp': float(ds18b20_temp),
+        'enclosure_temp': float(sht21_temp),
+        'enclosure_humi': float(sht21_humi),
+        'voltage': float(voltage),
+        'max_rssi': int(max_rssi),
+        'max_snr': float(max_snr),
+    }
+    tags = {
+        'sensor_id': sensor_id,
+        'dev_id': device_id,
+        'dev_eui': dev_eui,
+        'sf': spreading_factor,
+        'bw': bandwidth_khz,
+        'best_gateway': best_gateway_id,
+    }
+    print('Logging to InfluxDB...')
+    log_to_influxdb(influxdb_client, fields, tags)
 
-        # Log to InfluxDB
-        fields = {
-            'water_temp': float(ds18b20_temp),
-            'enclosure_temp': float(sht21_temp),
-            'enclosure_humi': float(sht21_humi),
-            'voltage': float(voltage),
-            'max_rssi': int(max_rssi),
-            'max_snr': float(max_snr),
-        }
-        tags = {
-            'sensor_id': sensor_id,
-            'dev_id': dev_id,
-            'dev_eui': dev_eui,
-            'datarate': data_rate,
-            'best_gateway': best_gateway_id,
-        }
-        log_to_influxdb(influxdb_client, fields, tags)
+    print()
 
 
 ttn_client = mqtt.Client()
 ttn_client.on_connect = on_connect
 ttn_client.on_message = on_message
 
-ttn_client.username_pw_set(TTN_APP_ID, TTN_ACCESS_KEY)
+ttn_client.username_pw_set(TTN_MQTT_USERNAME, TTN_MQTT_PASSWORD)
 ttn_client.tls_set('mqtt-ca.pem', tls_version=ssl.PROTOCOL_TLSv1_2)
 ttn_client.connect(TTN_MQTT_ENDPOINT, 8883, 60)
 
