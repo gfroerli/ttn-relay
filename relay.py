@@ -156,6 +156,12 @@ def handle_message(topic: str, data: dict):
     # Get uplink message
     uplink = data['uplink_message']
 
+    # Filter by fport
+    fport = uplink['f_port']
+    if fport != 1:  # Hardware v1
+        print('Not an FPort we can handle, ignoring')
+        return
+
     # Print some metadata
     print('Uplink metadata:')
     print('  FPort: %s' % uplink['f_port'])
