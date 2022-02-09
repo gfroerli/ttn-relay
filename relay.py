@@ -169,7 +169,10 @@ def handle_message(topic: str, data: dict):
     # Receiving gateways
     print('Receiving gateways:')
     for gw in uplink['rx_metadata']:
-        print('  - ID: %s (EUI %s)' % (gw['gateway_ids']['gateway_id'], gw['gateway_ids']['eui']))
+        print('  - ID: %s (EUI %s)' % (
+            gw['gateway_ids']['gateway_id'],
+            gw['gateway_ids'].get('eui', '?'),
+        ))
         print('    RSSI: %s' % gw.get('rssi', '-'))
         print('    SNR: %s' % gw.get('snr', '-'))
 
