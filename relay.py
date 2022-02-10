@@ -295,6 +295,11 @@ def handle_message(topic: str, data: dict):
             index += 1
             measurements.v_supply = (raw + 2000) / 1000
 
+    # Sanity checks
+    if measurements.t_water is not None and measurements.t_water > 50:
+        print('  Sanity check: Temperature %.2f is > 50°C. Seems implausible! Ignoring.' % measurements.t_water)
+        measurements.t_water = None
+
     # Print data (including timestamp, for easier grepping)
     msg_parts = []
     if measurements.t_water is not None:
