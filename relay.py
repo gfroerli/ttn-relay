@@ -3,6 +3,7 @@ Water Sensor Project: Relay from TTN to API.
 """
 from pprint import pprint
 import base64
+from dataclasses import dataclass
 import datetime
 import json
 import os
@@ -10,8 +11,9 @@ import ssl
 import struct
 import sys
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+import bitstruct
 import dotenv
 import influxdb
 import paho.mqtt.client as mqtt
@@ -44,9 +46,6 @@ INFLUXDB_USER = require_env('INFLUXDB_USER')
 INFLUXDB_PASS = require_env('INFLUXDB_PASS')
 INFLUXDB_DB = require_env('INFLUXDB_DB')
 
-# Payload
-PAYLOAD_FORMAT = '<ffff'
-
 # Watertemp API
 API_URL = 'https://watertemp-api.coredump.ch/api'
 API_TOKEN = os.environ.get('API_TOKEN')
@@ -69,6 +68,13 @@ if len(SENSOR_MAPPINGS_RAW) == 0:
 tmp = SENSOR_MAPPINGS_RAW.split(',')
 SENSOR_MAPPINGS = dict(zip(tmp[::2], map(int, tmp[1::2])))
 
+# FPorts
+FPORT_FORMAT_V1 = 1
+FPORT_FORMAT_V2 = 2
+SUPPORTED_FPORTS = [
+    FPORT_FORMAT_V1,
+    FPORT_FORMAT_V2,
+]
 
 # Create InfluxDB client
 influxdb_client = influxdb.InfluxDBClient(
@@ -79,6 +85,14 @@ influxdb_client = influxdb.InfluxDBClient(
 )
 
 
+@dataclass
+class Measurements:
+    t_water: Optional[float] = None
+    t_inside: Optional[float] = None
+    rh_inside: Optional[float] = None
+    v_supply: Optional[float] = None
+
+
 def send_to_api(
     sensor_id: int,
     temperature: float,
@@ -87,7 +101,7 @@ def send_to_api(
     """
     Send temperature measurement to API.
 
-    TODO: Send along attributes
+    TODO: Send along attributes (if defined)
     """
     data = {
         'sensor_id': sensor_id,
@@ -156,12 +170,6 @@ def handle_message(topic: str, data: dict):
     # Get uplink message
     uplink = data['uplink_message']
 
-    # Filter by fport
-    fport = uplink['f_port']
-    if fport != 1:  # Hardware v1
-        print('Not an FPort we can handle, ignoring')
-        return
-
     # Print some metadata
     print('Uplink metadata:')
     print('  FPort: %s' % uplink['f_port'])
@@ -206,21 +214,100 @@ def handle_message(topic: str, data: dict):
     print('Payload:')
     print('  Raw payload: %s' % uplink['frm_payload'])
 
-    # Decode message bytes
-    bytestring = base64.b64decode(uplink['frm_payload'])
-    try:
-        unpacked = struct.unpack(PAYLOAD_FORMAT, bytestring)
-    except struct.error as e:
-        print('Invalid payload format: %s' % e)
+    # Filter by FPort
+    fport = uplink['f_port']
+    if fport not in SUPPORTED_FPORTS:  # Hardware v1
+        print('Not an FPort we can handle, ignoring')
         return
-    msg = '  Decoded: %s | DS Temp: %.2f °C | SHT Temp: %.2f °C | SHT Humi: %.2f %%RH | Voltage: %.2f V'
-    timestamp = datetime.datetime.now().isoformat()
-    ds18b20_temp = unpacked[0]
-    sht21_temp = unpacked[1]
-    sht21_humi = unpacked[2]
-    voltage = unpacked[3]
-    msg_full = msg % (timestamp, ds18b20_temp, sht21_temp, sht21_humi, voltage)
-    print(msg_full)
+
+    # Prepare data
+    measurements = Measurements()
+
+    # Decode raw payload
+    bytestring = base64.b64decode(uplink['frm_payload'])
+
+    if fport == FPORT_FORMAT_V1:
+        protocol_version = 'v1'
+
+        # Decode message bytes
+        PAYLOAD_FORMAT_V1 = '<ffff'
+        try:
+            unpacked = struct.unpack(PAYLOAD_FORMAT_V1, bytestring)
+        except struct.error as e:
+            print('Invalid payload v1 format: %s' % e)
+            return
+        measurements.t_water = unpacked[0]
+        measurements.t_inside = unpacked[1]
+        measurements.rh_inside = unpacked[2]
+        measurements.v_supply = unpacked[3]
+
+    elif fport == FPORT_FORMAT_V2:
+        protocol_version = 'v2'
+
+        # Decode message bytes
+        data_mask = bytestring[0]
+        data = bytestring[1:]
+
+        # Data mask bits
+        DM_BIT_T_WATER = 1 << 0
+        DM_BIT_T_INSIDE = 1 << 1
+        DM_BIT_RH_INSIDE = 1 << 2
+        DM_BIT_V_SUPPLY = 1 << 3
+
+        # Determine bitstruct format
+        bitstruct_fmt = '>'
+        if data_mask & DM_BIT_T_WATER:
+            # Water temperature
+            bitstruct_fmt += 'u12'
+        if data_mask & DM_BIT_T_INSIDE:
+            # Inside temperature
+            bitstruct_fmt += 'u16'
+        if data_mask & DM_BIT_RH_INSIDE:
+            # Inside humidity
+            bitstruct_fmt += 'u16'
+        if data_mask & DM_BIT_V_SUPPLY:
+            # Supply voltage
+            bitstruct_fmt += 'u12'
+
+        # Decode bitstruct
+        try:
+            raw_values = bitstruct.unpack(bitstruct_fmt, data)
+        except bitstruct.Error as e:
+            print('Invalid payload v2 format: %s' % e)
+            return
+
+        # Convert measurements
+        index = 0
+        if data_mask & DM_BIT_T_WATER:
+            raw = raw_values[index]
+            index += 1
+            measurements.t_water = raw / 16
+        if data_mask & DM_BIT_T_INSIDE:
+            raw = raw_values[index]
+            index += 1
+            measurements.t_inside = -45.0 + 175.0 * (raw / (2**16))
+        if data_mask & DM_BIT_RH_INSIDE:
+            raw = raw_values[index]
+            index += 1
+            measurements.rh_inside = 100.0 * (raw / (2**16))
+        if data_mask & DM_BIT_V_SUPPLY:
+            raw = raw_values[index]
+            index += 1
+            measurements.v_supply = (raw + 2000) / 1000
+
+    # Print data (including timestamp, for easier grepping)
+    msg_parts = []
+    if measurements.t_water is not None:
+        msg_parts.append('Water Temp: %.2f °C' % measurements.t_water)
+    if measurements.t_inside is not None:
+        msg_parts.append('Inside Temp: %.2f °C' % measurements.t_inside)
+    if measurements.rh_inside is not None:
+        msg_parts.append('Inside Humi: %.2f %%RH' % measurements.rh_inside)
+    if measurements.v_supply is not None:
+        msg_parts.append('Voltage: %.2f V' % measurements.v_supply)
+    if len(msg_parts) == 0:
+        msg_parts.append('No data')
+    print('  Decoded (%s): %s' % (datetime.datetime.now().isoformat(), ' | '.join(msg_parts)))
 
     # Determine API sensor ID
     sensor_id = SENSOR_MAPPINGS.get(dev_eui)
@@ -229,21 +316,28 @@ def handle_message(topic: str, data: dict):
         return
 
     # Send to API
-    send_to_api(sensor_id, ds18b20_temp, {
-        'enclosure_temp': sht21_temp,
-        'enclosure_humi': sht21_humi,
-        'voltage': voltage,
-    })
+    if measurements.t_water is not None:
+        send_to_api(sensor_id, measurements.t_water, {
+            'enclosure_temp': measurements.t_inside,
+            'enclosure_humi': measurements.rh_inside,
+            'voltage': measurements.v_supply,
+            'protocol_version': protocol_version,
+        })
+    else:
+        print('No water temperature measurement, not sending to API')
 
     # Log to InfluxDB
-    fields = {
-        'water_temp': float(ds18b20_temp),
-        'enclosure_temp': float(sht21_temp),
-        'enclosure_humi': float(sht21_humi),
-        'voltage': float(voltage),
-        'max_rssi': int(max_rssi),
-        'max_snr': float(max_snr),
-    }
+    fields = {}
+    fields['max_rssi'] = int(max_rssi)
+    fields['max_snr'] = float(max_snr)
+    if measurements.t_water is not None:
+        fields['water_temp'] = float(measurements.t_water)
+    if measurements.t_inside is not None:
+        fields['enclosure_temp'] = float(measurements.t_inside)
+    if measurements.rh_inside is not None:
+        fields['enclosure_humi'] = float(measurements.rh_inside)
+    if measurements.v_supply is not None:
+        fields['voltage'] = float(measurements.v_supply)
     tags = {
         'sensor_id': sensor_id,
         'dev_id': device_id,
@@ -251,6 +345,7 @@ def handle_message(topic: str, data: dict):
         'sf': spreading_factor,
         'bw': bandwidth_khz,
         'best_gateway': best_gateway_id,
+        'protocol_version': protocol_version,
     }
     print('Logging to InfluxDB...')
     log_to_influxdb(influxdb_client, fields, tags)
