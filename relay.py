@@ -228,6 +228,7 @@ def handle_message(topic: str, data: dict):
 
     if fport == FPORT_FORMAT_V1:
         protocol_version = 'v1'
+        print('  Protocol version: %s' % protocol_version)
 
         # Decode message bytes
         PAYLOAD_FORMAT_V1 = '<ffff'
@@ -243,6 +244,7 @@ def handle_message(topic: str, data: dict):
 
     elif fport == FPORT_FORMAT_V2:
         protocol_version = 'v2'
+        print('  Protocol version: %s' % protocol_version)
 
         # Decode message bytes
         data_mask = bytestring[0]
