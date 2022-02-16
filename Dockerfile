@@ -1,4 +1,4 @@
-FROM python:3.6
+FROM python:3.10
 
 # Preparations
 RUN groupadd -r relay && useradd --no-log-init -r -g relay relay
