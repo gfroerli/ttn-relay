@@ -1,0 +1,12 @@
+[ttn]
+host = "eu1.cloud.thethings.network"
+user = "gfroerli-test@ttn"
+pass = "XXXXX.YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY.ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+
+[sensors.AABBCCDDEEFF0011]
+sensor_type = "gfroerli"
+sensor_id = 123
+
+[sensors.FFFFFFFFFFFFFFFF]
+sensor_type = "dragino"
+sensor_id = 124
