@@ -21,7 +21,7 @@ pub struct Mqtt {
     pub pass: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Copy, Clone)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum SensorType {
     /// Custom Gfrörli firmware
@@ -30,7 +30,7 @@ pub enum SensorType {
     Dragino,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Sensor {
     /// The sensor type
     pub sensor_type: SensorType,
