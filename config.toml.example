@@ -3,6 +3,10 @@ host = "eu1.cloud.thethings.network"
 user = "gfroerli-test@ttn"
 pass = "XXXXX.YYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYYY.ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
 
+[api]
+base_url = "https://watertemp-api.coredump.ch/api"
+api_token = "aiohsghweghweofiwef"
+
 [sensors.AABBCCDDEEFF0011]
 sensor_type = "gfroerli"
 sensor_id = 123

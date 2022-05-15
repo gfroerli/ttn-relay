@@ -7,8 +7,18 @@ use serde::Deserialize;
 pub struct Config {
     /// MQTT config
     pub ttn: Mqtt,
+    /// API config
+    pub api: Api,
     /// A mapping from DevEUI to sensor config
     pub sensors: HashMap<String, Sensor>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Api {
+    /// Gfrörli API base URL
+    pub base_url: String,
+    /// API token
+    pub api_token: String,
 }
 
 #[derive(Debug, Deserialize)]

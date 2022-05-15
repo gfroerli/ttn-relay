@@ -5,11 +5,15 @@ use clap::Parser;
 use drogue_ttn::v3 as ttn;
 use env_logger::Env;
 use log::{debug, error, info, warn};
+use once_cell::sync::OnceCell;
 use paho_mqtt as mqtt;
+use serde_json as json;
 
 mod config;
 
 use config::{Config, Sensor, SensorType};
+
+static CONFIG: OnceCell<Config> = OnceCell::new();
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -28,7 +32,8 @@ fn main() -> Result<()> {
 
     // Read config
     debug!("Reading config from {:?}", &cli.config);
-    let config: Config = Config::from_file(&cli.config)?;
+    CONFIG.set(Config::from_file(&cli.config)?).unwrap();
+    let config = CONFIG.get().unwrap();
     info!("Configured sensors:");
     for (dev_eui, sensor) in &config.sensors {
         info!(
@@ -128,7 +133,7 @@ fn handle_uplink(msg: mqtt::Message, sensors: &HashMap<String, Sensor>) -> Resul
     info!("Uplink received:");
     debug!("  Topic: {}", msg.topic());
     let ttn_msg: ttn::Message =
-        serde_json::from_slice(msg.payload()).context("Could not deserialize uplink payload")?;
+        json::from_slice(msg.payload()).context("Could not deserialize uplink payload")?;
     let dev_eui = ttn_msg.end_device_ids.dev_eui;
     info!("  DevEUI: {:?}", dev_eui);
     debug!("  DevAddr: {:?}", ttn_msg.end_device_ids.dev_addr);
@@ -174,19 +179,34 @@ fn handle_uplink(msg: mqtt::Message, sensors: &HashMap<String, Sensor>) -> Resul
     };
 
     // Process measurement
-    process_measurement(measurement_message);
+    if let Err(e) = process_measurement(measurement_message) {
+        error!("Error while processing measurement: {}", e);
+    }
 
     Ok(())
 }
 
 /// Process a measurement targeted at a specific sensor.
-fn process_measurement(measurement_message: MeasurementMessage) {
+fn process_measurement(measurement_message: MeasurementMessage) -> Result<()> {
     println!("{:?}", measurement_message);
+
+    // Parse payload
     let parsed_data = match measurement_message.sensor.sensor_type {
         SensorType::Gfroerli => unimplemented!(),
-        SensorType::Dragino => parse_payload_dragino(measurement_message.raw_payload),
+        SensorType::Dragino => parse_payload_dragino(measurement_message.raw_payload)
+            .context("Failed to parse Dragino payload")?,
     };
     println!("{:?}", parsed_data);
+
+    // Send to Gfrörli API
+    if let Err(e) = send_to_api(
+        measurement_message.sensor.sensor_id,
+        parsed_data.temperature,
+    ) {
+        warn!("Could not submit measurement to API: {:#}", e);
+    }
+
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -210,7 +230,10 @@ struct Measurement {
 /// All multi-byte values are in big endian format.
 fn parse_payload_dragino(payload: &[u8]) -> Result<Measurement> {
     if payload.len() != 11 {
-        bail!("Expected Dragino uplink payload to be 11 bytes, but was {}", payload.len());
+        bail!(
+            "Expected Dragino uplink payload to be 11 bytes, but was {}",
+            payload.len()
+        );
     }
     let battery_millivolts = u16::from_be_bytes([payload[0], payload[1]]);
     let temperature_raw = u16::from_be_bytes([payload[2], payload[3]]) as f32;
@@ -222,6 +245,37 @@ fn parse_payload_dragino(payload: &[u8]) -> Result<Measurement> {
         battery_millivolts,
         temperature,
     })
+}
+
+#[derive(serde::Serialize)]
+struct ApiPayload {
+    sensor_id: u32,
+    temperature: f32,
+}
+
+/// Send a measurement to the Gfrörli API server.
+fn send_to_api(sensor_id: u32, temperature: f32) -> Result<()> {
+    let config = CONFIG.get().unwrap();
+    let url = format!("{}/measurements", config.api.base_url);
+    let authorization = format!("Bearer {}", &config.api.api_token);
+    info!("Sending temperature {:.2}°C to API...", temperature);
+    let response = ureq::post(&url)
+        .set("authorization", &authorization)
+        .send_json(&ApiPayload {
+            sensor_id,
+            temperature,
+        })
+        .context("API request failed")?;
+    if response.status() == 201 {
+        debug!("API request succeeded");
+        Ok(())
+    } else {
+        bail!(
+            "API request failed: HTTP {} ({})",
+            response.status(),
+            response.status_text()
+        );
+    }
 }
 
 /// Attempt to reconnect to the broker. It can be called after connection is lost.
