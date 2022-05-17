@@ -865,6 +865,7 @@ name = "ttn-relay"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
  "drogue-ttn",
  "env_logger",

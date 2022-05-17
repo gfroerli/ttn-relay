@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::File, io::Read, path::Path};
+use std::{collections::HashMap, fmt, fs::File, io::Read, path::Path};
 
 use anyhow::{bail, Context, Result};
 use serde::Deserialize;
@@ -9,16 +9,10 @@ pub struct Config {
     pub ttn: Mqtt,
     /// API config
     pub api: Api,
+    /// InfluxDB config
+    pub influxdb: Option<InfluxDb>,
     /// A mapping from DevEUI to sensor config
     pub sensors: HashMap<String, Sensor>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Api {
-    /// Gfrörli API base URL
-    pub base_url: String,
-    /// API token
-    pub api_token: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -31,6 +25,26 @@ pub struct Mqtt {
     pub pass: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct Api {
+    /// Gfrörli API base URL
+    pub base_url: String,
+    /// API token
+    pub api_token: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InfluxDb {
+    /// InfluxDB connection string, e.g. `https://influxdb.example.com`
+    pub base_url: String,
+    /// InfluxDB username
+    pub user: String,
+    /// InfluxDB password
+    pub pass: String,
+    /// InfluxDB database
+    pub db: String,
+}
+
 #[derive(Debug, Deserialize, Copy, Clone)]
 #[serde(rename_all(deserialize = "snake_case"))]
 pub enum SensorType {
@@ -38,6 +52,15 @@ pub enum SensorType {
     Gfroerli,
     /// Dragino LSN50 v2-D20
     Dragino,
+}
+
+impl fmt::Display for SensorType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", match self {
+            SensorType::Gfroerli => "gfroerli",
+            SensorType::Dragino => "dragino",
+        })
+    }
 }
 
 #[derive(Debug, Deserialize, Clone)]

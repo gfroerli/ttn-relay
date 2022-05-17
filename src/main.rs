@@ -10,6 +10,7 @@ use paho_mqtt as mqtt;
 use serde_json as json;
 
 mod config;
+mod influxdb;
 
 use config::{Config, Sensor, SensorType};
 
@@ -206,6 +207,12 @@ fn process_measurement(measurement_message: MeasurementMessage) -> Result<()> {
         warn!("Could not submit measurement to API: {:#}", e);
     }
 
+    // Send to InfluxDB
+    if let Err(e) = send_to_influxdb(&measurement_message, &parsed_data) {
+        warn!("Could not submit measurement to InfluxDB: {:#}", e);
+    }
+
+    info!("Processing done!");
     Ok(())
 }
 
@@ -276,6 +283,45 @@ fn send_to_api(sensor_id: u32, temperature: f32) -> Result<()> {
             response.status_text()
         );
     }
+}
+
+/// Send a measurement to InfluxDB.
+fn send_to_influxdb(
+    measurement_message: &MeasurementMessage,
+    measurement: &Measurement,
+) -> Result<()> {
+    let config = CONFIG.get().unwrap();
+    if let Some(influxdb_config) = &config.influxdb {
+        info!("Logging measurement to InfluxDB...");
+
+        // TODO: Re-use agent
+        let agent = influxdb::make_ureq_agent();
+
+        let mut tags = HashMap::new();
+        tags.insert(
+            "sensor_id",
+            measurement_message.sensor.sensor_id.to_string(),
+        );
+        tags.insert("dev_eui", measurement_message.dev_eui.to_string());
+        tags.insert(
+            "sensor_type",
+            measurement_message.sensor.sensor_type.to_string(),
+        );
+        // TODO: sf, bw, best_gateway, manufacturer, protocol_version
+
+        let mut fields = HashMap::new();
+        fields.insert("water_temp", format!("{:.2}", measurement.temperature));
+        fields.insert(
+            "voltage",
+            format!("{:.3}", (measurement.battery_millivolts as f32) / 1000.0),
+        );
+        // TODO: max_rssi, max_snr, enclosure_temp, enclosure_humi
+
+        influxdb::submit_measurement(agent, influxdb_config, &tags, &fields)
+            .context("InfluxDB request failed")?;
+        debug!("InfluxDB request succeeded");
+    }
+    Ok(())
 }
 
 /// Attempt to reconnect to the broker. It can be called after connection is lost.
