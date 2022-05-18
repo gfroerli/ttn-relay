@@ -870,7 +870,6 @@ dependencies = [
  "drogue-ttn",
  "env_logger",
  "log",
- "once_cell",
  "paho-mqtt",
  "serde",
  "serde_json",
