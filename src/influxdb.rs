@@ -1,18 +1,10 @@
-use std::{collections::HashMap, time::Duration};
+use std::collections::HashMap;
 
 use anyhow::{Context, Result};
 use log::debug;
 use ureq::Agent;
 
 use crate::config;
-
-/// Create an ureq agent.
-pub fn make_ureq_agent() -> Agent {
-    ureq::AgentBuilder::new()
-        .timeout_read(Duration::from_secs(5))
-        .timeout_write(Duration::from_secs(5))
-        .build()
-}
 
 pub fn submit_measurement(
     agent: Agent,
@@ -32,7 +24,10 @@ pub fn submit_measurement(
         .map(|(k, v)| format!("{}={}", k, v))
         .collect::<Vec<String>>()
         .join(",");
-    payloads.push(format!("temperature_test,{} {}", tags_string, fields_string));
+    payloads.push(format!(
+        "temperature_test,{} {}",
+        tags_string, fields_string
+    ));
     let payload = payloads.join("\n");
     debug!("Sending payload: {}", payload);
 

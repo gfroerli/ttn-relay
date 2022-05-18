@@ -26,10 +26,13 @@ struct App {
     config: Config,
     /// MQTT client
     mqtt_client: mqtt::Client,
+    /// HTTP client
+    http_client: ureq::Agent,
 }
 
 impl App {
     fn new(config: Config) -> Result<Self> {
+        // MQTT client
         let mqtt_client = mqtt::Client::new(
             mqtt::CreateOptionsBuilder::new()
                 .server_uri(&config.ttn.host)
@@ -37,9 +40,16 @@ impl App {
         )
         .context("Error creating the client")?;
 
+        // HTTP client
+        let http_client = ureq::AgentBuilder::new()
+            .timeout_read(Duration::from_secs(5))
+            .timeout_write(Duration::from_secs(5))
+            .build();
+
         Ok(Self {
             config,
             mqtt_client,
+            http_client,
         })
     }
 
@@ -202,7 +212,9 @@ impl App {
         let url = format!("{}/measurements", self.config.api.base_url);
         let authorization = format!("Bearer {}", self.config.api.api_token);
         info!("Sending temperature {:.2}°C to API...", temperature);
-        let response = ureq::post(&url)
+        let response = self
+            .http_client
+            .post(&url)
             .set("authorization", &authorization)
             .send_json(&ApiPayload {
                 sensor_id,
@@ -230,9 +242,6 @@ impl App {
         if let Some(influxdb_config) = &self.config.influxdb {
             info!("Logging measurement to InfluxDB...");
 
-            // TODO: Re-use agent
-            let agent = influxdb::make_ureq_agent();
-
             let mut tags = HashMap::new();
             tags.insert(
                 "sensor_id",
@@ -253,7 +262,7 @@ impl App {
             );
             // TODO: max_rssi, max_snr, enclosure_temp, enclosure_humi
 
-            influxdb::submit_measurement(agent, influxdb_config, &tags, &fields)
+            influxdb::submit_measurement(self.http_client.clone(), influxdb_config, &tags, &fields)
                 .context("InfluxDB request failed")?;
             debug!("InfluxDB request succeeded");
         }
