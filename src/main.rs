@@ -21,6 +21,7 @@ struct Cli {
     config: PathBuf,
 }
 
+/// Main application object.
 struct App {
     /// App configuration
     config: Config,
@@ -28,6 +29,26 @@ struct App {
     mqtt_client: mqtt::Client,
     /// HTTP client
     http_client: ureq::Agent,
+}
+
+#[derive(Debug)]
+struct MeasurementMessage<'a> {
+    dev_eui: &'a str,
+    sensor: &'a Sensor,
+    meta: MeasurementMeta,
+    raw_payload: &'a [u8],
+}
+
+#[derive(Debug)]
+struct MeasurementMeta {
+    frame_port: u16,
+    airtime_ms: u32,
+}
+
+#[derive(serde::Serialize)]
+struct ApiPayload {
+    sensor_id: u32,
+    temperature: f32,
 }
 
 impl App {
@@ -292,26 +313,6 @@ fn main() -> Result<()> {
     // Instantiate App
     let app = App::new(config)?;
     app.run()
-}
-
-#[derive(Debug)]
-struct MeasurementMessage<'a> {
-    dev_eui: &'a str,
-    sensor: &'a Sensor,
-    meta: MeasurementMeta,
-    raw_payload: &'a [u8],
-}
-
-#[derive(Debug)]
-struct MeasurementMeta {
-    frame_port: u16,
-    airtime_ms: i64,
-}
-
-#[derive(serde::Serialize)]
-struct ApiPayload {
-    sensor_id: u32,
-    temperature: f32,
 }
 
 /// Attempt to reconnect to the broker. It can be called after connection is lost.
