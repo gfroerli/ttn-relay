@@ -163,8 +163,9 @@ impl App {
             "  Airtime: {} ms",
             uplink.consumed_airtime.num_milliseconds()
         );
-        if let Some(ttn::DataRate::Lora(_dr)) = uplink.settings.data_rate {
-            // TODO: https://github.com/drogue-iot/drogue-ttn/pull/2
+        if let Some(ttn::DataRate::Lora(dr)) = uplink.settings.data_rate {
+            debug!("  SF: {}", dr.spreading_factor);
+            debug!("  Bandwidth: {}", dr.bandwidth);
         }
         debug!("  Payload: {:?}", uplink.frame_payload);
 
