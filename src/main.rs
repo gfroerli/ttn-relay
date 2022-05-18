@@ -143,8 +143,15 @@ impl App {
     /// - Look up sensor
     /// - If sensor was found, create a `MeasurementMessage` and call processing function
     fn handle_uplink(&self, msg: mqtt::Message) -> Result<()> {
+        // Right now we're only interested in uplinks
+        if !msg.topic().ends_with("/up") {
+            debug!("Received a non-uplink message, ignoring");
+            return Ok(());
+        }
         info!("Uplink received:");
         debug!("  Topic: {}", msg.topic());
+
+        // Decode payload and print some information
         let ttn_msg: ttn::Message =
             json::from_slice(msg.payload()).context("Could not deserialize uplink payload")?;
         let dev_eui = ttn_msg.end_device_ids.dev_eui;
