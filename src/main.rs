@@ -186,7 +186,7 @@ impl App {
             sensor,
             meta: MeasurementMeta {
                 frame_port: uplink.frame_port,
-                airtime_ms: uplink.consumed_airtime.num_milliseconds(),
+                airtime_ms: uplink.consumed_airtime.num_milliseconds() as u32,
             },
             raw_payload: &uplink.frame_payload,
         };
@@ -214,7 +214,7 @@ impl App {
         // Send to Gfrörli API
         if let Err(e) = self.send_to_api(
             measurement_message.sensor.sensor_id,
-            parsed_data.temperature,
+            parsed_data.temperature_water,
         ) {
             warn!("Could not submit measurement to API: {:#}", e);
         }
@@ -263,6 +263,7 @@ impl App {
         if let Some(influxdb_config) = &self.config.influxdb {
             info!("Logging measurement to InfluxDB...");
 
+            // Tags (can be used for filtering and grouping)
             let mut tags = HashMap::new();
             tags.insert(
                 "sensor_id",
@@ -273,15 +274,29 @@ impl App {
                 "sensor_type",
                 measurement_message.sensor.sensor_type.to_string(),
             );
-            // TODO: sf, bw, best_gateway, manufacturer, protocol_version
+            // TODO: sf, bw, best_gateway, protocol_version
 
+            // Value fields
             let mut fields = HashMap::new();
-            fields.insert("water_temp", format!("{:.2}", measurement.temperature));
+            fields.insert(
+                "water_temp",
+                format!("{:.2}", measurement.temperature_water),
+            );
+            if let Some(temp) = measurement.temperature_enclosure {
+                fields.insert("enclosure_temp", format!("{:.2}", temp));
+            }
+            if let Some(humi) = measurement.humidity_enclosure {
+                fields.insert("eenclosure_humi", format!("{:.2}", humi));
+            }
             fields.insert(
                 "voltage",
                 format!("{:.3}", (measurement.battery_millivolts as f32) / 1000.0),
             );
-            // TODO: max_rssi, max_snr, enclosure_temp, enclosure_humi
+            fields.insert(
+                "airtime_ms",
+                measurement_message.meta.airtime_ms.to_string(),
+            );
+            // TODO: max_rssi, max_snr
 
             influxdb::submit_measurement(self.http_client.clone(), influxdb_config, &tags, &fields)
                 .context("InfluxDB request failed")?;

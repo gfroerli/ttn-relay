@@ -2,10 +2,14 @@ use anyhow::{bail, Result};
 
 #[derive(Debug)]
 pub struct Measurement {
+    /// The water temperature in °C.
+    pub temperature_water: f32,
+    /// The enclosure temperature in °C.
+    pub temperature_enclosure: Option<f32>,
+    /// The enclosure humidity in %RH.
+    pub humidity_enclosure: Option<f32>,
     /// The battery voltage in millivolts.
     pub battery_millivolts: u16,
-    /// The water temperature in °C.
-    pub temperature: f32,
 }
 
 /// Parse a Dragino payload.
@@ -33,8 +37,10 @@ pub fn parse_payload_dragino(payload: &[u8]) -> Result<Measurement> {
         false => (temperature_raw - 65536.0) / 10.0,
     };
     Ok(Measurement {
+        temperature_water: temperature,
+        temperature_enclosure: None,
+        humidity_enclosure: None,
         battery_millivolts,
-        temperature,
     })
 }
 
@@ -51,7 +57,7 @@ mod tests {
         let measurement2 = parse_payload_dragino(&payload2).unwrap();
         assert_eq!(measurement1.battery_millivolts, 2885);
         assert_eq!(measurement2.battery_millivolts, 2889);
-        assert_eq!(measurement1.temperature, 26.1);
-        assert_eq!(measurement2.temperature, -19.3);
+        assert_eq!(measurement1.temperature_water, 26.1);
+        assert_eq!(measurement2.temperature_water, -19.3);
     }
 }
