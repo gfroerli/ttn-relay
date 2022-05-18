@@ -43,6 +43,7 @@ struct MeasurementMessage<'a> {
 struct MeasurementMeta {
     frame_port: u16,
     airtime_ms: u32,
+    spreading_factor: Option<u16>,
 }
 
 #[derive(serde::Serialize)]
@@ -170,10 +171,14 @@ impl App {
             "  Airtime: {} ms",
             uplink.consumed_airtime.num_milliseconds()
         );
-        if let Some(ttn::DataRate::Lora(dr)) = uplink.settings.data_rate {
+        let spreading_factor = if let Some(ttn::DataRate::Lora(dr)) = uplink.settings.data_rate {
             debug!("  SF: {}", dr.spreading_factor);
-            debug!("  Bandwidth: {}", dr.bandwidth);
-        }
+            debug!("  Bandwidth: {} Hz", dr.bandwidth);
+            Some(dr.spreading_factor)
+        } else {
+            warn!("Non-LoRa data rate");
+            None
+        };
         debug!("  Payload: {:?}", uplink.frame_payload);
 
         // Look up sensor
@@ -195,6 +200,7 @@ impl App {
             meta: MeasurementMeta {
                 frame_port: uplink.frame_port,
                 airtime_ms: uplink.consumed_airtime.num_milliseconds() as u32,
+                spreading_factor: spreading_factor,
             },
             raw_payload: &uplink.frame_payload,
         };
@@ -282,6 +288,9 @@ impl App {
                 "sensor_type",
                 measurement_message.sensor.sensor_type.to_string(),
             );
+            if let Some(sf) = measurement_message.meta.spreading_factor {
+                tags.insert("sf", sf.to_string());
+            }
             // TODO: sf, bw, best_gateway, protocol_version
 
             // Value fields
@@ -304,6 +313,9 @@ impl App {
                 "airtime_ms",
                 measurement_message.meta.airtime_ms.to_string(),
             );
+            if let Some(sf) = measurement_message.meta.spreading_factor {
+                fields.insert("sf", sf.to_string());
+            }
             // TODO: max_rssi, max_snr
 
             influxdb::submit_measurement(self.http_client.clone(), influxdb_config, &tags, &fields)
