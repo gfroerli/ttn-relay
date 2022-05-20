@@ -18,7 +18,7 @@ jobs:
   publish:
     name: Publish Docker image
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/riir'
     steps:
       - uses: actions/checkout@v2
       - name: Extract branch name
@@ -29,11 +29,11 @@ jobs:
         run: |
           docker build \
             --no-cache \
-            -t gfroerli/ttn-relay:v1 \
+            -t gfroerli/ttn-relay:v2 \
             -t gfroerli/ttn-relay:${{ steps.extract_branch.outputs.branch }} \
             .
       - name: Push Docker image
         run: |
           docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}" && \
-          docker push gfroerli/ttn-relay:v1 && \
+          docker push gfroerli/ttn-relay:v2 && \
           docker push gfroerli/ttn-relay:${{ steps.extract_branch.outputs.branch }}
