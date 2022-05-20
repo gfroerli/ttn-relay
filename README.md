@@ -3,23 +3,14 @@
 
 # TTN Relay
 
-A Python 3 script to relay data from The Things Network (v3) to our own
+A Rust program to relay data from The Things Network (v3) to our own
 application server (and to InfluxDB).
 
 ## Configuration
 
-Set the following env variables:
+Copy `config.toml.example` to `config.toml` and adjust it.
 
-- `DEBUG`: Enable debugging mode
-- `TTN_MQTT_ENDPOINT`: Optional MQTT endpoint (hostname)
-- `TTN_MQTT_USERNAME`: The TTN MQTT username
-- `TTN_MQTT_PASSWORD`: The TTN MQTT password
-- `API_TOKEN`: The Water Sensor API token (with write access)
-- `SENSOR_MAPPINGS`: A comma separated list of (DevEUI, SensorID) pairs.
-  Example: `0004A30B001FAAAA,4,0004A30B001FBBBB,5`
-
-You can also place those env variables in an `.env` file, they will be read
-automatically.
+Then run `ttn-relay` with `--config <path-to-config.toml>`.
 
 ## Docker
 
