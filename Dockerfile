@@ -1,16 +1,16 @@
-FROM python:3.10
+# Build
+FROM rust:1-slim-bullseye AS builder
+COPY . /src
+RUN apt-get update \
+ && apt-get install -y cmake pkg-config libssl-dev \
+ && rm -rf /var/lib/apt/lists/*
+RUN cd /src && cargo build --release
 
-# Preparations
-RUN groupadd -r relay && useradd --no-log-init -r -g relay relay
-WORKDIR /code
-
-# Add code
-ADD relay.py mqtt-ca.pem requirements.txt /code/
-RUN chown -R relay:relay /code
-
-# Dependencies
-RUN pip install -r requirements.txt
-
-# Start
-USER relay
-CMD ["/usr/bin/env", "python3", "-u", "relay.py"]
+# Create runtime container
+# Note that we need a small init process for PID 1 that forwards signals.
+# See https://github.com/Yelp/dumb-init
+FROM debian:11-slim
+RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /src/target/release/ttn-relay /usr/local/bin/
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+CMD [ "ttn-relay", "--config", "/etc/ttn-relay.toml" ]
