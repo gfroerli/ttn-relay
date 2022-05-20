@@ -35,4 +35,5 @@ jobs:
       - name: Push Docker image
         run: |
           docker login -u "${{ secrets.DOCKER_USERNAME }}" -p "${{ secrets.DOCKER_PASSWORD }}" && \
-          docker push gfroerli/ttn-relay
+          docker push gfroerli/ttn-relay:v1 && \
+          docker push gfroerli/ttn-relay:${{ steps.extract_branch.outputs.branch }}
