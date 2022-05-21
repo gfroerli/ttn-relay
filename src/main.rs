@@ -221,7 +221,7 @@ impl App {
             SensorType::Dragino => payload::parse_payload_dragino(measurement_message.raw_payload)
                 .context("Failed to parse Dragino payload")?,
         };
-        trace!("Measurement: {:?}", parsed_data);
+        info!("Measurement: {:?}", parsed_data);
 
         // Send to Gfrörli API
         if let Err(e) = self.send_to_api(
