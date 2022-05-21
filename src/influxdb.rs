@@ -24,10 +24,8 @@ pub fn submit_measurement(
         .map(|(k, v)| format!("{}={}", k, v))
         .collect::<Vec<String>>()
         .join(",");
-    payloads.push(format!(
-        "temperature_test,{} {}",
-        tags_string, fields_string
-    ));
+    let measurement = config.measurement.as_deref().unwrap_or("temperature");
+    payloads.push(format!("{},{} {}", measurement, tags_string, fields_string));
     let payload = payloads.join("\n");
     debug!("Sending payload: {}", payload);
 

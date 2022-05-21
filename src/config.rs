@@ -43,6 +43,8 @@ pub struct InfluxDb {
     pub pass: String,
     /// InfluxDB database
     pub db: String,
+    /// Measurement name (default: "temperature")
+    pub measurement: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Copy, Clone)]
