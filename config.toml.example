@@ -14,3 +14,4 @@ sensor_id = 123
 [sensors.FFFFFFFFFFFFFFFF]
 sensor_type = "dragino"
 sensor_id = 124
+send_to_api = false

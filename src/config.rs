@@ -71,6 +71,11 @@ pub struct Sensor {
     pub sensor_type: SensorType,
     /// The Gfrörli API sensor ID
     pub sensor_id: u32,
+    /// Whether to send data of this sensor to the API (default true)
+    ///
+    /// If set to false, data will be logged to InfluxDB, but not to the
+    /// Gfroerli API.
+    pub send_to_api: Option<bool>,
 }
 
 impl Config {

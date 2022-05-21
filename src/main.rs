@@ -224,11 +224,18 @@ impl App {
         info!("Measurement: {:?}", parsed_data);
 
         // Send to Gfrörli API
-        if let Err(e) = self.send_to_api(
-            measurement_message.sensor.sensor_id,
-            parsed_data.temperature_water,
-        ) {
-            warn!("Could not submit measurement to API: {:#}", e);
+        if measurement_message.sensor.send_to_api.unwrap_or(true) {
+            if let Err(e) = self.send_to_api(
+                measurement_message.sensor.sensor_id,
+                parsed_data.temperature_water,
+            ) {
+                warn!("Could not submit measurement to API: {:#}", e);
+            }
+        } else {
+            info!(
+                "API data submission was disabled for sensor {}",
+                measurement_message.sensor.sensor_id
+            );
         }
 
         // Send to InfluxDB
