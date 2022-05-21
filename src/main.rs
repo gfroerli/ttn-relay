@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use drogue_ttn::v3 as ttn;
 use env_logger::Env;
-use log::{debug, error, info, warn};
+use log::{debug, error, info, trace, warn};
 use paho_mqtt as mqtt;
 use serde_json as json;
 
@@ -215,15 +215,13 @@ impl App {
 
     /// Process a measurement targeted at a specific sensor.
     fn process_measurement(&self, measurement_message: MeasurementMessage) -> Result<()> {
-        println!("{:?}", measurement_message);
-
         // Parse payload
         let parsed_data = match measurement_message.sensor.sensor_type {
             SensorType::Gfroerli => unimplemented!(),
             SensorType::Dragino => payload::parse_payload_dragino(measurement_message.raw_payload)
                 .context("Failed to parse Dragino payload")?,
         };
-        println!("{:?}", parsed_data);
+        trace!("Measurement: {:?}", parsed_data);
 
         // Send to Gfrörli API
         if let Err(e) = self.send_to_api(
