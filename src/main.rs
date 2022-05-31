@@ -4,7 +4,7 @@ use anyhow::{bail, Context, Result};
 use clap::Parser;
 use drogue_ttn::v3 as ttn;
 use env_logger::Env;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, info, warn};
 use paho_mqtt as mqtt;
 use serde_json as json;
 
@@ -153,8 +153,18 @@ impl App {
         debug!("  Topic: {}", msg.topic());
 
         // Decode payload and print some information
-        let ttn_msg: ttn::Message =
-            json::from_slice(msg.payload()).context("Could not deserialize uplink payload")?;
+        let ttn_msg = match json::from_slice::<ttn::Message>(msg.payload()) {
+            Ok(msg) => msg,
+            Err(_) => {
+                debug!(
+                    "Uplink message could not be parsed: {}",
+                    std::str::from_utf8(msg.payload())
+                        .map(str::to_string)
+                        .unwrap_or_else(|_| format!("{:?}", msg.payload())),
+                );
+                bail!("Could not deserialize uplink payload");
+            }
+        };
         let dev_eui = ttn_msg.end_device_ids.dev_eui;
         info!("  DevEUI: {:?}", dev_eui);
         debug!("  DevAddr: {:?}", ttn_msg.end_device_ids.dev_addr);
