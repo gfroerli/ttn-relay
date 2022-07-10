@@ -52,6 +52,8 @@ struct ApiPayload {
     temperature: f32,
 }
 
+static SUBSCRIPTIONS: [&str; 2] = ["v3/+/devices/+/activations", "v3/+/devices/+/up"];
+
 impl App {
     fn new(config: Config) -> Result<Self> {
         // MQTT client
@@ -86,8 +88,6 @@ impl App {
             .user_name(&self.config.ttn.user)
             .password(&self.config.ttn.pass)
             .finalize();
-        let subscriptions = ["v3/+/devices/+/activations", "v3/+/devices/+/up"];
-        let qos = [1, 1];
         info!("Connecting to the TTN MQTT broker...");
         let rsp = self
             .mqtt_client
@@ -99,18 +99,7 @@ impl App {
                 conn_rsp.server_uri, conn_rsp.mqtt_version
             );
             if !conn_rsp.session_present {
-                // Register subscriptions on the server
-                debug!("Subscribing to topics, with requested QoS: {:?}", qos);
-
-                let qosv = self
-                    .mqtt_client
-                    .subscribe_many(&subscriptions, &qos)
-                    .map_err(|e| {
-                        self.mqtt_client.disconnect(None).unwrap();
-                        e
-                    })
-                    .context("Error subscribing to topics")?;
-                debug!("QoS granted: {}", qosv.reason_code());
+                subscribe(&self.mqtt_client)?;
             }
         }
 
@@ -130,7 +119,7 @@ impl App {
         // If we're still connected, then disconnect now, otherwise we're already disconnected.
         if self.mqtt_client.is_connected() {
             info!("Disconnecting");
-            self.mqtt_client.unsubscribe_many(&subscriptions).unwrap();
+            self.mqtt_client.unsubscribe_many(&SUBSCRIPTIONS).unwrap();
             self.mqtt_client.disconnect(None).unwrap();
         }
         info!("Exiting");
@@ -365,13 +354,44 @@ fn main() -> Result<()> {
     app.run()
 }
 
+/// Subscribe to activations and uplinks.
+fn subscribe(client: &mqtt::Client) -> Result<()> {
+    let qos = [1, 1];
+
+    // Register subscriptions on the server
+    debug!("Subscribing to topics, with requested QoS: {:?}", qos);
+
+    let qosv = client
+        .subscribe_many(&SUBSCRIPTIONS, &qos)
+        .map_err(|e| {
+            client.disconnect(None).unwrap();
+            e
+        })
+        .context("Error subscribing to topics")?;
+    debug!("QoS granted: {}", qosv.reason_code());
+    Ok(())
+}
+
 /// Attempt to reconnect to the broker. It can be called after connection is lost.
 fn try_reconnect(client: &mqtt::Client) -> bool {
     warn!("Connection lost. Waiting to retry connection");
+    let mut attempt = 0;
     loop {
         thread::sleep(Duration::from_millis(5000));
-        if client.reconnect().is_ok() {
+        attempt += 1;
+        info!("Reconnection attempt {}", attempt);
+        if let Ok(resp) = client.reconnect() {
             info!("Successfully reconnected");
+
+            // Re-subscribe
+            if let Some(conn_rsp) = resp.connect_response() {
+                if !conn_rsp.session_present {
+                    subscribe(client).expect("Failed to subscribe after reconnect");
+                }
+            } else {
+                error!("No connect response associated with reconnect server response");
+            }
+
             return true;
         }
     }
