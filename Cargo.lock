@@ -206,7 +206,7 @@ dependencies = [
 [[package]]
 name = "drogue-ttn"
 version = "0.5.1"
-source = "git+https://github.com/dbrgn/drogue-ttn?branch=time-field-optional#bbd9f0504c41392fc267cd2f4d5b9b0341b94fba"
+source = "git+https://github.com/dbrgn/drogue-ttn?branch=main#1309ed66d4d00868c44145d4523662d8aef2c3b2"
 dependencies = [
  "base64",
  "base64-serde",
