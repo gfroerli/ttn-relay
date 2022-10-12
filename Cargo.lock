@@ -276,7 +276,7 @@ dependencies = [
 [[package]]
 name = "drogue-ttn"
 version = "0.5.1"
-source = "git+https://github.com/dbrgn/drogue-ttn?branch=main#1309ed66d4d00868c44145d4523662d8aef2c3b2"
+source = "git+https://github.com/dbrgn/drogue-ttn?branch=main#628f8f7950a22a3c780fb001ffe93f96573702e8"
 dependencies = [
  "base64",
  "base64-serde",
