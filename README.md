@@ -12,6 +12,11 @@ Copy `config.toml.example` to `config.toml` and adjust it.
 
 Then run `ttn-relay` with `--config <path-to-config.toml>`.
 
+## Connection Loss
+
+When the connection is lost, the relay will terminate. Set up your process
+manager to restart the service in that case.
+
 ## Docker
 
 A docker image is built at

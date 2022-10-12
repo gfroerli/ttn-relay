@@ -1,4 +1,4 @@
-use std::{collections::HashMap, path::PathBuf, thread, time::Duration};
+use std::{collections::HashMap, path::PathBuf, time::Duration};
 
 use anyhow::{bail, Context, Result};
 use clap::Parser;
@@ -111,7 +111,9 @@ impl App {
                 if let Err(e) = self.handle_uplink(msg) {
                     error!("Failed to handle uplink: {}", e);
                 }
-            } else if self.mqtt_client.is_connected() || !try_reconnect(&self.mqtt_client) {
+            } else {
+                // We lost the connection. Terminate and let the relay be
+                // restarted by the process manager.
                 break;
             }
         }
@@ -370,29 +372,4 @@ fn subscribe(client: &mqtt::Client) -> Result<()> {
         .context("Error subscribing to topics")?;
     debug!("QoS granted: {}", qosv.reason_code());
     Ok(())
-}
-
-/// Attempt to reconnect to the broker. It can be called after connection is lost.
-fn try_reconnect(client: &mqtt::Client) -> bool {
-    warn!("Connection lost. Waiting to retry connection");
-    let mut attempt = 0;
-    loop {
-        thread::sleep(Duration::from_millis(5000));
-        attempt += 1;
-        info!("Reconnection attempt {}", attempt);
-        if let Ok(resp) = client.reconnect() {
-            info!("Successfully reconnected");
-
-            // Re-subscribe
-            if let Some(conn_rsp) = resp.connect_response() {
-                if !conn_rsp.session_present {
-                    subscribe(client).expect("Failed to subscribe after reconnect");
-                }
-            } else {
-                error!("No connect response associated with reconnect server response");
-            }
-
-            return true;
-        }
-    }
 }
