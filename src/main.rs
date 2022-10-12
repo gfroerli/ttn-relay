@@ -57,12 +57,13 @@ static SUBSCRIPTIONS: [&str; 2] = ["v3/+/devices/+/activations", "v3/+/devices/+
 impl App {
     fn new(config: Config) -> Result<Self> {
         // MQTT client
-        let mqtt_client = mqtt::Client::new(
+        let mut mqtt_client = mqtt::Client::new(
             mqtt::CreateOptionsBuilder::new()
                 .server_uri(&config.ttn.host)
                 .finalize(),
         )
         .context("Error creating the client")?;
+        mqtt_client.set_timeout(Duration::from_secs(3));
 
         // HTTP client
         let http_client = ureq::AgentBuilder::new()
