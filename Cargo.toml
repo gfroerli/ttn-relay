@@ -8,7 +8,7 @@ publish = false
 anyhow = "1"
 base64 = "0.13"
 clap = { version = "3.1.18", features = ["derive"] }
-drogue-ttn = { git = "https://github.com/dbrgn/drogue-ttn", branch = "main" }
+drogue-ttn = "0.6.0"
 env_logger = "0.9"
 log = "0.4"
 paho-mqtt = "0.11.1"

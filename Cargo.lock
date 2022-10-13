@@ -275,8 +275,9 @@ dependencies = [
 
 [[package]]
 name = "drogue-ttn"
-version = "0.5.1"
-source = "git+https://github.com/dbrgn/drogue-ttn?branch=main#628f8f7950a22a3c780fb001ffe93f96573702e8"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fbaef23969c136080ffb84929baf537871e605c1e21fc93f2d51b5d53f2b6971"
 dependencies = [
  "base64",
  "base64-serde",
