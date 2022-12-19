@@ -44,6 +44,13 @@ struct MeasurementMeta {
     airtime_ms: u32,
     spreading_factor: Option<u16>,
     bandwidth: Option<u64>,
+    receiving_gateways: Vec<ReceivingGateway>,
+}
+
+#[derive(Debug)]
+struct ReceivingGateway {
+    rssi: f64,
+    snr: Option<f64>,
 }
 
 #[derive(serde::Serialize)]
@@ -183,6 +190,27 @@ impl App {
                 (None, None)
             };
         debug!("  Payload: {:?}", uplink.frame_payload);
+        debug!("  Receiving gateways: {}", uplink.rx_metadata.len());
+        let mut gateways = Vec::with_capacity(uplink.rx_metadata.len());
+        for (i, gateway) in uplink.rx_metadata.iter().enumerate() {
+            let name = gateway
+                .gateway_ids
+                .get("gateway_id")
+                .or_else(|| gateway.gateway_ids.get("eui"))
+                .map(String::to_string)
+                .unwrap_or_else(|| format!("gateway-{}", i + 1));
+            debug!("    {}: {}", i + 1, name);
+            debug!("       RSSI: {} / Channel RSSI: {}", gateway.rssi, gateway.channel_rssi);
+            if let Some(snr) = gateway.snr {
+                debug!("       SNR: {}", snr);
+            } else {
+                debug!("       SNR: ?");
+            }
+            gateways.push(ReceivingGateway {
+                rssi: gateway.rssi,
+                snr: gateway.snr,
+            });
+        }
 
         // Look up sensor
         let sensor = match self.config.sensors.get(&dev_eui) {
@@ -204,6 +232,7 @@ impl App {
                 airtime_ms: uplink.consumed_airtime.num_milliseconds() as u32,
                 spreading_factor,
                 bandwidth,
+                receiving_gateways: gateways,
             },
             raw_payload: &uplink.frame_payload,
         };
@@ -327,7 +356,26 @@ impl App {
             if let Some(sf) = measurement_message.meta.spreading_factor {
                 fields.insert("sf", sf.to_string());
             }
-            // TODO: max_rssi, max_snr
+            if !measurement_message.meta.receiving_gateways.is_empty() {
+                if let Some(max_rssi) = measurement_message
+                    .meta
+                    .receiving_gateways
+                    .iter()
+                    .map(|gw| gw.rssi)
+                    .max_by(|a, b| a.total_cmp(b))
+                {
+                    fields.insert("max_rssi", max_rssi.to_string());
+                }
+                if let Some(max_snr) = measurement_message
+                    .meta
+                    .receiving_gateways
+                    .iter()
+                    .filter_map(|gw| gw.snr)
+                    .max_by(|a, b| a.total_cmp(b))
+                {
+                    fields.insert("max_snr", max_snr.to_string());
+                }
+            }
 
             influxdb::submit_measurement(self.http_client.clone(), influxdb_config, &tags, &fields)
                 .context("InfluxDB request failed")?;
