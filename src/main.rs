@@ -41,9 +41,9 @@ struct MeasurementMessage<'a> {
 
 #[derive(Debug)]
 struct MeasurementMeta {
-    frame_port: u16,
     airtime_ms: u32,
     spreading_factor: Option<u16>,
+    bandwidth: Option<u64>,
 }
 
 #[derive(serde::Serialize)]
@@ -173,14 +173,15 @@ impl App {
             "  Airtime: {} ms",
             uplink.consumed_airtime.num_milliseconds()
         );
-        let spreading_factor = if let Some(ttn::DataRate::Lora(dr)) = uplink.settings.data_rate {
-            debug!("  SF: {}", dr.spreading_factor);
-            debug!("  Bandwidth: {} Hz", dr.bandwidth);
-            Some(dr.spreading_factor)
-        } else {
-            warn!("Non-LoRa data rate");
-            None
-        };
+        let (spreading_factor, bandwidth) =
+            if let Some(ttn::DataRate::Lora(dr)) = uplink.settings.data_rate {
+                debug!("  SF: {}", dr.spreading_factor);
+                debug!("  Bandwidth: {} Hz", dr.bandwidth);
+                (Some(dr.spreading_factor), Some(dr.bandwidth))
+            } else {
+                warn!("Non-LoRa data rate");
+                (None, None)
+            };
         debug!("  Payload: {:?}", uplink.frame_payload);
 
         // Look up sensor
@@ -200,9 +201,9 @@ impl App {
             dev_eui: &dev_eui,
             sensor,
             meta: MeasurementMeta {
-                frame_port: uplink.frame_port,
                 airtime_ms: uplink.consumed_airtime.num_milliseconds() as u32,
-                spreading_factor: spreading_factor,
+                spreading_factor,
+                bandwidth,
             },
             raw_payload: &uplink.frame_payload,
         };
@@ -298,7 +299,10 @@ impl App {
             if let Some(sf) = measurement_message.meta.spreading_factor {
                 tags.insert("sf", sf.to_string());
             }
-            // TODO: sf, bw, best_gateway, protocol_version
+            if let Some(bw) = measurement_message.meta.bandwidth {
+                tags.insert("bw", bw.to_string());
+            }
+            // TODO: best_gateway, protocol_version
 
             // Value fields
             let mut fields = HashMap::new();
