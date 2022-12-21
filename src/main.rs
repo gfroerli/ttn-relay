@@ -36,6 +36,7 @@ struct MeasurementMessage<'a> {
     dev_eui: &'a str,
     sensor: &'a Sensor,
     meta: MeasurementMeta,
+    frame_port: u16,
     raw_payload: &'a [u8],
 }
 
@@ -200,7 +201,10 @@ impl App {
                 .map(String::to_string)
                 .unwrap_or_else(|| format!("gateway-{}", i + 1));
             debug!("    {}: {}", i + 1, name);
-            debug!("       RSSI: {} / Channel RSSI: {}", gateway.rssi, gateway.channel_rssi);
+            debug!(
+                "       RSSI: {} / Channel RSSI: {}",
+                gateway.rssi, gateway.channel_rssi
+            );
             if let Some(snr) = gateway.snr {
                 debug!("       SNR: {}", snr);
             } else {
@@ -234,6 +238,7 @@ impl App {
                 bandwidth,
                 receiving_gateways: gateways,
             },
+            frame_port: uplink.frame_port,
             raw_payload: &uplink.frame_payload,
         };
 
@@ -249,7 +254,21 @@ impl App {
     fn process_measurement(&self, measurement_message: MeasurementMessage) -> Result<()> {
         // Parse payload
         let parsed_data = match measurement_message.sensor.sensor_type {
-            SensorType::Gfroerli => unimplemented!(),
+            // Gfroerli
+            SensorType::Gfroerli if measurement_message.frame_port == 1 => {
+                payload::parse_payload_gfroerli_v1(measurement_message.raw_payload)
+                    .context("Failed to parse Gfroerli V1 payload")?
+            }
+            SensorType::Gfroerli if measurement_message.frame_port == 2 => {
+                payload::parse_payload_gfroerli_v2(measurement_message.raw_payload)
+                    .context("Failed to parse Gfroerli V2 payload")?
+            }
+            SensorType::Gfroerli => bail!(
+                "Unknown FPort for a Gfroerli sensor: {}",
+                measurement_message.frame_port
+            ),
+
+            // Dragino
             SensorType::Dragino => payload::parse_payload_dragino(measurement_message.raw_payload)
                 .context("Failed to parse Dragino payload")?,
         };
