@@ -350,7 +350,6 @@ impl App {
             if let Some(bw) = measurement_message.meta.bandwidth {
                 tags.insert("bw", bw.to_string());
             }
-            // TODO: best_gateway, protocol_version
 
             // Value fields
             let mut fields = HashMap::new();
@@ -375,6 +374,14 @@ impl App {
             if let Some(sf) = measurement_message.meta.spreading_factor {
                 fields.insert("sf", sf.to_string());
             }
+            fields.insert(
+                "receiving_gateway_count",
+                measurement_message
+                    .meta
+                    .receiving_gateways
+                    .len()
+                    .to_string(),
+            );
             if !measurement_message.meta.receiving_gateways.is_empty() {
                 if let Some(max_rssi) = measurement_message
                     .meta
