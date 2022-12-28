@@ -50,6 +50,7 @@ struct MeasurementMeta {
 
 #[derive(Debug)]
 struct ReceivingGateway {
+    name: String,
     rssi: f64,
     snr: Option<f64>,
 }
@@ -211,6 +212,7 @@ impl App {
                 debug!("       SNR: ?");
             }
             gateways.push(ReceivingGateway {
+                name,
                 rssi: gateway.rssi,
                 snr: gateway.snr,
             });
@@ -383,23 +385,24 @@ impl App {
                     .to_string(),
             );
             if !measurement_message.meta.receiving_gateways.is_empty() {
-                if let Some(max_rssi) = measurement_message
+                if let Some(gw) = measurement_message
                     .meta
                     .receiving_gateways
                     .iter()
-                    .map(|gw| gw.rssi)
-                    .max_by(|a, b| a.total_cmp(b))
+                    .max_by(|a, b| a.rssi.total_cmp(&b.rssi))
                 {
-                    fields.insert("max_rssi", max_rssi.to_string());
+                    fields.insert("max_rssi", gw.rssi.to_string());
+                    fields.insert("max_rssi_gateway", gw.name.clone());
                 }
-                if let Some(max_snr) = measurement_message
+                if let Some((gw, snr)) = measurement_message
                     .meta
                     .receiving_gateways
                     .iter()
-                    .filter_map(|gw| gw.snr)
-                    .max_by(|a, b| a.total_cmp(b))
+                    .filter_map(|gw| gw.snr.map(|snr| (gw, snr)))
+                    .max_by(|a, b| a.1.total_cmp(&b.1))
                 {
-                    fields.insert("max_snr", max_snr.to_string());
+                    fields.insert("max_snr", snr.to_string());
+                    fields.insert("max_snr_gateway", gw.name.clone());
                 }
             }
 
