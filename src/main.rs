@@ -371,18 +371,14 @@ impl App {
             );
             fields.insert(
                 "airtime_ms",
-                measurement_message.meta.airtime_ms.to_string(),
+                format!("{}i", measurement_message.meta.airtime_ms),
             );
             if let Some(sf) = measurement_message.meta.spreading_factor {
-                fields.insert("sf", sf.to_string());
+                fields.insert("sf", format!("{}i", sf));
             }
             fields.insert(
                 "receiving_gateway_count",
-                measurement_message
-                    .meta
-                    .receiving_gateways
-                    .len()
-                    .to_string(),
+                format!("{}i", measurement_message.meta.receiving_gateways.len()),
             );
             if !measurement_message.meta.receiving_gateways.is_empty() {
                 if let Some(gw) = measurement_message
@@ -392,7 +388,7 @@ impl App {
                     .max_by(|a, b| a.rssi.total_cmp(&b.rssi))
                 {
                     fields.insert("max_rssi", gw.rssi.to_string());
-                    fields.insert("max_rssi_gateway", gw.name.clone());
+                    fields.insert("max_rssi_gateway", format!("\"{}\"", gw.name));
                 }
                 if let Some((gw, snr)) = measurement_message
                     .meta
@@ -402,7 +398,7 @@ impl App {
                     .max_by(|a, b| a.1.total_cmp(&b.1))
                 {
                     fields.insert("max_snr", snr.to_string());
-                    fields.insert("max_snr_gateway", gw.name.clone());
+                    fields.insert("max_snr_gateway", format!("\"{}\"", gw.name));
                 }
             }
 
