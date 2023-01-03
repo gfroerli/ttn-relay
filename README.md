@@ -25,6 +25,6 @@ for every push to master.
 
 <!-- Badges -->
 [ci]: https://github.com/gfroerli/ttn-relay/actions?query=workflow%3ACI
-[ci-badge]: https://img.shields.io/github/workflow/status/gfroerli/ttn-relay/CI/master
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/gfroerli/ttn-relay/ci.yml?branch=master
 [docker]: https://hub.docker.com/r/gfroerli/ttn-relay/
 [docker-badge]: https://img.shields.io/badge/docker%20image-gfroerli%2Fttn--relay-blue.svg
