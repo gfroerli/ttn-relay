@@ -363,7 +363,7 @@ impl App {
                 fields.insert("enclosure_temp", format!("{:.2}", temp));
             }
             if let Some(humi) = measurement.humidity_enclosure {
-                fields.insert("eenclosure_humi", format!("{:.2}", humi));
+                fields.insert("enclosure_humi", format!("{:.2}", humi));
             }
             fields.insert(
                 "voltage",
