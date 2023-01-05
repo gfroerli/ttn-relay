@@ -335,8 +335,13 @@ impl App {
         if let Some(influxdb_config) = &self.config.influxdb {
             info!("Logging measurement to InfluxDB...");
 
-            // Tags (can be used for filtering and grouping)
+            // Note:
+            // - Tags can be used for filtering and grouping.
+            // - Value fields can be visualized directly.
             let mut tags = HashMap::new();
+            let mut fields = HashMap::new();
+
+            // Sensor info
             tags.insert(
                 "sensor_id",
                 measurement_message.sensor.sensor_id.to_string(),
@@ -346,15 +351,22 @@ impl App {
                 "sensor_type",
                 measurement_message.sensor.sensor_type.to_string(),
             );
+
+            // Spreading factor and bandwidth
             if let Some(sf) = measurement_message.meta.spreading_factor {
                 tags.insert("sf", sf.to_string());
+                fields.insert("sf", format!("{}i", sf));
             }
             if let Some(bw) = measurement_message.meta.bandwidth {
                 tags.insert("bw", bw.to_string());
+                fields.insert("bw", format!("{}i", bw));
             }
+            fields.insert(
+                "airtime_ms",
+                format!("{}i", measurement_message.meta.airtime_ms),
+            );
 
-            // Value fields
-            let mut fields = HashMap::new();
+            // Measurements
             fields.insert(
                 "water_temp",
                 format!("{:.2}", measurement.temperature_water),
@@ -369,13 +381,8 @@ impl App {
                 "voltage",
                 format!("{:.3}", (measurement.battery_millivolts as f32) / 1000.0),
             );
-            fields.insert(
-                "airtime_ms",
-                format!("{}i", measurement_message.meta.airtime_ms),
-            );
-            if let Some(sf) = measurement_message.meta.spreading_factor {
-                fields.insert("sf", format!("{}i", sf));
-            }
+
+            // Gateway(s)
             fields.insert(
                 "receiving_gateway_count",
                 format!("{}i", measurement_message.meta.receiving_gateways.len()),
@@ -387,8 +394,8 @@ impl App {
                     .iter()
                     .max_by(|a, b| a.rssi.total_cmp(&b.rssi))
                 {
+                    tags.insert("max_rssi_gateway", format!("\"{}\"", gw.name));
                     fields.insert("max_rssi", gw.rssi.to_string());
-                    fields.insert("max_rssi_gateway", format!("\"{}\"", gw.name));
                 }
                 if let Some((gw, snr)) = measurement_message
                     .meta
@@ -397,8 +404,8 @@ impl App {
                     .filter_map(|gw| gw.snr.map(|snr| (gw, snr)))
                     .max_by(|a, b| a.1.total_cmp(&b.1))
                 {
+                    tags.insert("max_snr_gateway", format!("\"{}\"", gw.name));
                     fields.insert("max_snr", snr.to_string());
-                    fields.insert("max_snr_gateway", format!("\"{}\"", gw.name));
                 }
             }
 
