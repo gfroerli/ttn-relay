@@ -346,7 +346,7 @@ impl App {
                 "sensor_id",
                 measurement_message.sensor.sensor_id.to_string(),
             );
-            tags.insert("dev_eui", measurement_message.dev_eui.to_string());
+            tags.insert("sensor_dev_eui", measurement_message.dev_eui.to_string());
             tags.insert(
                 "sensor_type",
                 measurement_message.sensor.sensor_type.to_string(),
