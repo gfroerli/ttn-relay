@@ -4,7 +4,7 @@
 # TTN Relay
 
 A Rust program to relay data from The Things Network (v3) to our own
-application server (and to InfluxDB).
+application server (and to InfluxDB 1/2).
 
 ## Configuration
 

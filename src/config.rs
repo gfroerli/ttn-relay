@@ -11,6 +11,8 @@ pub struct Config {
     pub api: Api,
     /// InfluxDB config
     pub influxdb: Option<InfluxDb>,
+    /// InfluxDB 2 config (has precedence over InfluxDB 1)
+    pub influxdb2: Option<InfluxDb2>,
     /// A mapping from DevEUI to sensor config
     pub sensors: HashMap<String, Sensor>,
 }
@@ -43,6 +45,20 @@ pub struct InfluxDb {
     pub pass: String,
     /// InfluxDB database
     pub db: String,
+    /// Measurement name (default: "temperature")
+    pub measurement: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct InfluxDb2 {
+    /// InfluxDB connection string, e.g. `https://influxdb.example.com`
+    pub base_url: String,
+    /// InfluxDB organization (name or ID)
+    pub org: String,
+    /// InfluxDB API token
+    pub api_token: String,
+    /// InfluxDB bucket
+    pub bucket: String,
     /// Measurement name (default: "temperature")
     pub measurement: Option<String>,
 }

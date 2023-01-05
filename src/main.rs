@@ -13,6 +13,7 @@ mod influxdb;
 mod payload;
 
 use config::{Config, Sensor, SensorType};
+use influxdb::InfluxDbConfig;
 
 #[derive(Debug, Parser)]
 struct Cli {
@@ -332,7 +333,14 @@ impl App {
         measurement_message: &MeasurementMessage,
         measurement: &payload::Measurement,
     ) -> Result<()> {
-        if let Some(influxdb_config) = &self.config.influxdb {
+        let config: Option<InfluxDbConfig> = if let Some(ref v2) = self.config.influxdb2 {
+            Some(InfluxDbConfig::V2(v2))
+        } else if let Some(ref v1) = self.config.influxdb {
+            Some(InfluxDbConfig::V1(v1))
+        } else {
+            None
+        };
+        if let Some(config) = config {
             info!("Logging measurement to InfluxDB...");
 
             // Note:
@@ -409,7 +417,7 @@ impl App {
                 }
             }
 
-            influxdb::submit_measurement(self.http_client.clone(), influxdb_config, &tags, &fields)
+            influxdb::submit_measurement(self.http_client.clone(), config, &tags, &fields)
                 .context("InfluxDB request failed")?;
             debug!("InfluxDB request succeeded");
         }
