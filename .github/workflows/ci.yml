@@ -18,7 +18,7 @@ jobs:
   publish:
     name: Publish Docker image
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/riir'
+    if: github.ref == 'refs/heads/master'
     steps:
       - uses: actions/checkout@v2
       - name: Extract branch name
