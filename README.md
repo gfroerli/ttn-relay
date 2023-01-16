@@ -3,23 +3,19 @@
 
 # TTN Relay
 
-A Python 3 script to relay data from The Things Network (v3) to our own
-application server (and to InfluxDB).
+A Rust program to relay data from The Things Network (v3) to our own
+application server (and to InfluxDB 1/2).
 
 ## Configuration
 
-Set the following env variables:
+Copy `config.toml.example` to `config.toml` and adjust it.
 
-- `DEBUG`: Enable debugging mode
-- `TTN_MQTT_ENDPOINT`: Optional MQTT endpoint (hostname)
-- `TTN_MQTT_USERNAME`: The TTN MQTT username
-- `TTN_MQTT_PASSWORD`: The TTN MQTT password
-- `API_TOKEN`: The Water Sensor API token (with write access)
-- `SENSOR_MAPPINGS`: A comma separated list of (DevEUI, SensorID) pairs.
-  Example: `0004A30B001FAAAA,4,0004A30B001FBBBB,5`
+Then run `ttn-relay` with `--config <path-to-config.toml>`.
 
-You can also place those env variables in an `.env` file, they will be read
-automatically.
+## Connection Loss
+
+When the connection is lost, the relay will terminate. Set up your process
+manager to restart the service in that case.
 
 ## Docker
 
@@ -29,6 +25,6 @@ for every push to master.
 
 <!-- Badges -->
 [ci]: https://github.com/gfroerli/ttn-relay/actions?query=workflow%3ACI
-[ci-badge]: https://img.shields.io/github/workflow/status/gfroerli/ttn-relay/CI/master
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/gfroerli/ttn-relay/ci.yml?branch=master
 [docker]: https://hub.docker.com/r/gfroerli/ttn-relay/
 [docker-badge]: https://img.shields.io/badge/docker%20image-gfroerli%2Fttn--relay-blue.svg
