@@ -303,6 +303,11 @@ impl App {
 
     /// Send a measurement to the Gfrörli API server.
     fn send_to_api(&self, sensor_id: u32, temperature: f32) -> Result<()> {
+        if temperature == 0.0 {
+            warn!("Temperature is 0°C, not sending to API");
+            return Ok(());
+        }
+
         let url = format!("{}/measurements", self.config.api.base_url);
         let authorization = format!("Bearer {}", self.config.api.api_token);
         info!("Sending temperature {:.2}°C to API...", temperature);
