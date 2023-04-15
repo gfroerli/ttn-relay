@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
+use base64::prelude::{Engine, BASE64_STANDARD};
 use log::debug;
 use ureq::Agent;
 
@@ -43,7 +44,7 @@ pub fn submit_measurement(
         InfluxDbConfig::V1(c) => {
             format!(
                 "Basic {}",
-                base64::encode(format!("{}:{}", &c.user, &c.pass))
+                BASE64_STANDARD.encode(format!("{}:{}", &c.user, &c.pass)),
             )
         }
         InfluxDbConfig::V2(c) => {
