@@ -303,8 +303,8 @@ impl App {
 
     /// Send a measurement to the Gfrörli API server.
     fn send_to_api(&self, sensor_id: u32, temperature: f32) -> Result<()> {
-        if temperature == 0.0 {
-            warn!("Temperature is 0°C, not sending to API");
+        if temperature <= 0.0 {
+            warn!("Temperature is at or below °C, not sending to API");
             return Ok(());
         }
 
