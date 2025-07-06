@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 anyhow = "1"
-base64 = "0.21"
+base64 = "0.22"
 clap = { version = "4", features = ["derive"] }
 drogue-ttn = "0.6.0"
 env_logger = "0.10"
