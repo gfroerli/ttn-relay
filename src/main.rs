@@ -157,9 +157,9 @@ impl App {
         // Decode payload and print some information
         let ttn_msg = match json::from_slice::<ttn::Message>(msg.payload()) {
             Ok(msg) => msg,
-            Err(_) => {
+            Err(e) => {
                 debug!(
-                    "Uplink message could not be parsed: {}",
+                    "Uplink message could not be parsed ({e}): {}",
                     std::str::from_utf8(msg.payload())
                         .map(str::to_string)
                         .unwrap_or_else(|_| format!("{:?}", msg.payload())),
