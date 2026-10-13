@@ -6,6 +6,19 @@ on:
 name: CI
 
 jobs:
+  test:
+    name: Cargo build and test
+    runs-on: ubuntu-latest
+    container: rust:1.99
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake pkg-config libssl-dev
+      - run: cargo build
+      - run: cargo test
+
   build:
     name: Build Docker image
     runs-on: ubuntu-latest
