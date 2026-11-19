@@ -9,7 +9,7 @@ RUN cd /src && cargo build --release
 # Create runtime container
 # Note that we need a small init process for PID 1 that forwards signals.
 # See https://github.com/Yelp/dumb-init
-FROM debian:11-slim
+FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /src/target/release/ttn-relay /usr/local/bin/
 RUN addgroup --gid 2343 relay \
