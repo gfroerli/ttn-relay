@@ -1,9 +1,9 @@
 # Build
 FROM rust:1-slim-bookworm AS builder
-COPY . /src
 RUN apt-get update \
  && apt-get install -y cmake pkg-config libssl-dev \
  && rm -rf /var/lib/apt/lists/*
+COPY . /src
 RUN cd /src && cargo build --release
 
 # Create runtime container
