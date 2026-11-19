@@ -10,7 +10,7 @@ RUN cd /src && cargo build --release
 # Note that we need a small init process for PID 1 that forwards signals.
 # See https://github.com/Yelp/dumb-init
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y dumb-init libssl3 && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /src/target/release/ttn-relay /usr/local/bin/
 RUN addgroup --gid 2343 relay \
  && adduser --disabled-password --gecos "" --uid 2343 --gid 2343 relay \
