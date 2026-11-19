@@ -99,7 +99,7 @@ impl App {
             .keep_alive_interval(Duration::from_secs(20))
             .clean_session(false)
             .user_name(&self.config.ttn.user)
-            .password(&self.config.ttn.pass)
+            .password(&*self.config.ttn.pass)
             .finalize();
         info!("Connecting to the TTN MQTT broker...");
         let rsp = self
