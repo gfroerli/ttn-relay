@@ -61,8 +61,8 @@ pub fn submit_measurement(
     // Send request to server
     agent
         .post(&url)
-        .set("authorization", &auth)
-        .send_string(&payload)
+        .header("authorization", &auth)
+        .send(&payload)
         .context("HTTP request failed")?;
 
     Ok(())
