@@ -76,10 +76,12 @@ impl App {
         mqtt_client.set_timeout(Duration::from_secs(3));
 
         // HTTP client
-        let http_client = ureq::AgentBuilder::new()
-            .timeout_read(Duration::from_secs(5))
-            .timeout_write(Duration::from_secs(5))
-            .build();
+        let http_client = ureq::Agent::new_with_config(
+            ureq::Agent::config_builder()
+                .timeout_per_read(Some(Duration::from_secs(5)))
+                .timeout_per_write(Some(Duration::from_secs(5)))
+                .build(),
+        );
 
         Ok(Self {
             config,
@@ -97,7 +99,7 @@ impl App {
             .keep_alive_interval(Duration::from_secs(20))
             .clean_session(false)
             .user_name(&self.config.ttn.user)
-            .password(&self.config.ttn.pass)
+            .password(&*self.config.ttn.pass)
             .finalize();
         info!("Connecting to the TTN MQTT broker...");
         let rsp = self
@@ -314,7 +316,7 @@ impl App {
         let response = self
             .http_client
             .post(&url)
-            .set("authorization", &authorization)
+            .header("authorization", &authorization)
             .send_json(&ApiPayload {
                 sensor_id,
                 temperature,
@@ -325,9 +327,8 @@ impl App {
             Ok(())
         } else {
             bail!(
-                "API request failed: HTTP {} ({})",
-                response.status(),
-                response.status_text()
+                "API request failed: HTTP {}",
+                response.status()
             );
         }
     }
